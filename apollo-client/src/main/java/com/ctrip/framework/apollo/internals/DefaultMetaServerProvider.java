@@ -20,18 +20,18 @@ public class DefaultMetaServerProvider implements MetaServerProvider {
   }
 
   private String initMetaServerAddress() {
-    // 1. Get from System Property
+    // 1. 从System Property中获取 apollo.meta
     String metaAddress = System.getProperty(ConfigConsts.APOLLO_META_KEY);
     if (Strings.isNullOrEmpty(metaAddress)) {
-      // 2. Get from OS environment variable, which could not contain dot and is normally in UPPER case
+      // 2. 通过操作系统的System Environment中的APOLLO_META
       metaAddress = System.getenv("APOLLO_META");
     }
     if (Strings.isNullOrEmpty(metaAddress)) {
-      // 3. Get from server.properties
+      // 3. 从server.properties读取 apollo.meta
       metaAddress = Foundation.server().getProperty(ConfigConsts.APOLLO_META_KEY, null);
     }
     if (Strings.isNullOrEmpty(metaAddress)) {
-      // 4. Get from app.properties
+      // 4. 从app.properties读取 apollo.meta
       metaAddress = Foundation.app().getProperty(ConfigConsts.APOLLO_META_KEY, null);
     }
 
@@ -50,7 +50,7 @@ public class DefaultMetaServerProvider implements MetaServerProvider {
     //for default meta server provider, we don't care the actual environment
     return metaServerAddress;
   }
-
+  //order=0
   @Override
   public int getOrder() {
     return ORDER;

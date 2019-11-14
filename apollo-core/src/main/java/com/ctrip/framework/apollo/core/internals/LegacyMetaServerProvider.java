@@ -20,7 +20,7 @@ public class LegacyMetaServerProvider implements MetaServerProvider {
   public LegacyMetaServerProvider() {
     initialize();
   }
-
+  //读取配置文件 apollo-env.properties
   private void initialize() {
     Properties prop = new Properties();
     prop = ResourceUtils.readConfigFile("apollo-env.properties", prop);
@@ -34,8 +34,9 @@ public class LegacyMetaServerProvider implements MetaServerProvider {
   }
 
   private String getMetaServerAddress(Properties prop, String sourceName, String propName) {
-    // 1. Get from System Property.
+    // 1. 从System Property获取dev_meta
     String metaAddress = System.getProperty(sourceName);
+    //如果dev_meta不为空
     if (Strings.isNullOrEmpty(metaAddress)) {
       // 2. Get from OS environment variable, which could not contain dot and is normally in UPPER case,like DEV_META.
       metaAddress = System.getenv(sourceName.toUpperCase());

@@ -76,6 +76,14 @@ public class NamespaceBranchController {
     return ruleDTO;
   }
 
+  /***
+   *
+   * @param appId
+   * @param clusterName
+   * @param namespaceName
+   * @param branchName
+   * @param newRuleDto
+   */
   @Transactional
   @PutMapping("/apps/{appId}/clusters/{clusterName}/namespaces/{namespaceName}/branches/{branchName}/rules")
   public void updateBranchGrayRules(@PathVariable String appId, @PathVariable String clusterName,

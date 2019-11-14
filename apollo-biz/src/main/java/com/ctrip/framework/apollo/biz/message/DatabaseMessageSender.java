@@ -23,6 +23,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
 /**
  * @author Jason Song(song_s@ctrip.com)
  */
+
+/***
+ * Admin Service在配置发布后会往ReleaseMessage表插入一条消息记录，消息内容就是配置发布的AppId+Cluster+Namespace
+ */
 @Component
 public class DatabaseMessageSender implements MessageSender {
   private static final Logger logger = LoggerFactory.getLogger(DatabaseMessageSender.class);
@@ -39,6 +43,11 @@ public class DatabaseMessageSender implements MessageSender {
     this.releaseMessageRepository = releaseMessageRepository;
   }
 
+  /***
+   * 往ReleaseMessage表插入一条消息记录
+   * @param message
+   * @param channel
+   */
   @Override
   @Transactional
   public void sendMessage(String message, String channel) {
@@ -51,7 +60,9 @@ public class DatabaseMessageSender implements MessageSender {
     Tracer.logEvent("Apollo.AdminService.ReleaseMessage", message);
     Transaction transaction = Tracer.newTransaction("Apollo.AdminService", "sendMessage");
     try {
+      //往数据库里保存一条记录
       ReleaseMessage newMessage = releaseMessageRepository.save(new ReleaseMessage(message));
+      //向队列里添加一条消息
       toClean.offer(newMessage.getId());
       transaction.setStatus(Transaction.SUCCESS);
     } catch (Throwable ex) {
@@ -63,12 +74,16 @@ public class DatabaseMessageSender implements MessageSender {
     }
   }
 
+  /***
+   * 初始化一个线程，不停的从队列里取消息，如果队列为空，则等待6s
+   */
   @PostConstruct
   private void initialize() {
     cleanExecutorService.submit(() -> {
       while (!cleanStopped.get() && !Thread.currentThread().isInterrupted()) {
         try {
           Long rm = toClean.poll(1, TimeUnit.SECONDS);
+          //获得发布的新版本记录
           if (rm != null) {
             cleanMessage(rm);
           } else {
@@ -81,14 +96,21 @@ public class DatabaseMessageSender implements MessageSender {
     });
   }
 
+  /****
+   * 根据id 从数据库查询发布的记录
+   * @param id
+   */
   private void cleanMessage(Long id) {
     boolean hasMore = true;
     //double check in case the release message is rolled back
+    //根据id 从数据库查询发布的记录
     ReleaseMessage releaseMessage = releaseMessageRepository.findById(id).orElse(null);
     if (releaseMessage == null) {
       return;
     }
+    //获取到对应的发布记录
     while (hasMore && !Thread.currentThread().isInterrupted()) {
+      //根据消息获得它最近的id对应的ReleaseMessage，可能并发修改
       List<ReleaseMessage> messages = releaseMessageRepository.findFirst100ByMessageAndIdLessThanOrderByIdAsc(
           releaseMessage.getMessage(), releaseMessage.getId());
 

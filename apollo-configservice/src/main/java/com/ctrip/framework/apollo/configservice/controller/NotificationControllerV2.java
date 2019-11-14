@@ -48,6 +48,8 @@ import java.util.function.Function;
 
 /**
  * @author Jason Song(song_s@ctrip.com)
+ *
+ * 调用controller通知相应的客户端
  */
 @RestController
 @RequestMapping("/notifications/v2")
@@ -233,23 +235,28 @@ public class NotificationControllerV2 implements ReleaseMessageListener {
     return newNotifications;
   }
 
+  /***
+   * 通知监听的客户端开始处理消息
+   * @param message
+   * @param channel
+   */
   @Override
   public void handleMessage(ReleaseMessage message, String channel) {
     logger.info("message received - channel: {}, message: {}", channel, message);
-
+    //获得消息
     String content = message.getMessage();
     Tracer.logEvent("Apollo.LongPoll.Messages", content);
     if (!Topics.APOLLO_RELEASE_TOPIC.equals(channel) || Strings.isNullOrEmpty(content)) {
       return;
     }
-
+    //从消息中分解出namespace
     String changedNamespace = retrieveNamespaceFromReleaseMessage.apply(content);
 
     if (Strings.isNullOrEmpty(changedNamespace)) {
       logger.error("message format invalid - {}", content);
       return;
     }
-
+    //如果该监听器不监听这个namespace，则返回
     if (!deferredResults.containsKey(content)) {
       return;
     }
@@ -261,6 +268,7 @@ public class NotificationControllerV2 implements ReleaseMessageListener {
     configNotification.addMessage(content, message.getId());
 
     //do async notification if too many clients
+    //异步通知客户端
     if (results.size() > bizConfig.releaseMessageNotificationBatch()) {
       largeNotificationBatchExecutorService.submit(() -> {
         logger.debug("Async notify {} clients for key {} with batch {}", results.size(), content,

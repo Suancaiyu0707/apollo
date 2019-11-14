@@ -133,6 +133,19 @@ public class ReleaseController {
    *
    * @return published result
    */
+  /***
+   * 更新发布
+   * @param appId 应用id
+   * @param clusterName 集群名称
+   * @param namespaceName 命名空间
+   * @param releaseName
+   * @param branchName
+   * @param deleteBranch
+   * @param releaseComment
+   * @param isEmergencyPublish
+   * @param changeSets
+   * @return
+   */
   @Transactional
   @PostMapping("/apps/{appId}/clusters/{clusterName}/namespaces/{namespaceName}/updateAndPublish")
   public ReleaseDTO updateAndPublish(@PathVariable("appId") String appId,
@@ -144,12 +157,17 @@ public class ReleaseController {
                                      @RequestParam(name = "releaseComment", required = false) String releaseComment,
                                      @RequestParam(name = "isEmergencyPublish", defaultValue = "false") boolean isEmergencyPublish,
                                      @RequestBody ItemChangeSets changeSets) {
+    /***
+     * 检查命名空间是否存在
+     */
     Namespace namespace = namespaceService.findOne(appId, clusterName, namespaceName);
     if (namespace == null) {
       throw new NotFoundException(String.format("Could not find namespace for %s %s %s", appId,
                                                 clusterName, namespaceName));
     }
-
+    /***
+     * 配置 发布
+     */
     Release release = releaseService.mergeBranchChangeSetsAndRelease(namespace, branchName, releaseName,
                                                                      releaseComment, isEmergencyPublish, changeSets);
 
@@ -157,7 +175,10 @@ public class ReleaseController {
       namespaceBranchService.deleteBranch(appId, clusterName, namespaceName, branchName,
                                           NamespaceBranchStatus.MERGED, changeSets.getDataChangeLastModifiedBy());
     }
-
+    /***
+     * 往ReleaseMessage表插入一条消息记录
+     *  消息内容：AppId+Cluster+Namespace
+     */
     messageSender.sendMessage(ReleaseMessageKeyGenerator.generate(appId, clusterName, namespaceName),
                               Topics.APOLLO_RELEASE_TOPIC);
 
