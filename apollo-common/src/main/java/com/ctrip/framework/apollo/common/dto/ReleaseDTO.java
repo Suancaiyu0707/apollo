@@ -6,13 +6,15 @@ public class ReleaseDTO extends BaseDTO{
   private String releaseKey;
 
   private String name;
-
+  /**
+   * AppId
+   */
   private String appId;
-
+  //集群名字
   private String clusterName;
-
+  //namespace
   private String namespaceName;
-
+  //json格式的具体内容
   private String configurations;
 
   private String comment;

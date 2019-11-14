@@ -98,6 +98,17 @@ public class ReleaseController {
     return BeanUtils.transform(ReleaseDTO.class, release);
   }
 
+  /***
+   * 由portal模块调过来的发布请求
+   * @param appId appId
+   * @param clusterName 集群名称
+   * @param namespaceName 命名空间
+   * @param releaseName 发布标题
+   * @param releaseComment 发布描述
+   * @param operator 操作人
+   * @param isEmergencyPublish 是否紧急发布
+   * @return
+   */
   @Transactional
   @PostMapping("/apps/{appId}/clusters/{clusterName}/namespaces/{namespaceName}/releases")
   public ReleaseDTO publish(@PathVariable("appId") String appId,
@@ -107,21 +118,29 @@ public class ReleaseController {
                             @RequestParam(name = "comment", required = false) String releaseComment,
                             @RequestParam("operator") String operator,
                             @RequestParam(name = "isEmergencyPublish", defaultValue = "false") boolean isEmergencyPublish) {
+    // 校验对应的 Namespace 对象是否存在。若不存在，抛出 NotFoundException 异常
     Namespace namespace = namespaceService.findOne(appId, clusterName, namespaceName);
     if (namespace == null) {
       throw new NotFoundException(String.format("Could not find namespace for %s %s %s", appId,
                                                 clusterName, namespaceName));
     }
+    // 发布 Namespace 的配置
     Release release = releaseService.publish(namespace, releaseName, releaseComment, operator, isEmergencyPublish);
 
     //send release message
+    //根据namespace命名空间获得cluster集群名称
     Namespace parentNamespace = namespaceService.findParentNamespace(namespace);
     String messageCluster;
-    if (parentNamespace != null) {
+    /**
+     * 若有父 Namespace 对象，说明是子 Namespace ( 灰度发布 )，则使用父 Namespace 的 Cluster 名字。
+     * 因为，客户端即使在灰度发布的情况下，也是使用 父 Namespace 的 Cluster 名字。也就说，灰度发布，对客户端是透明无感知的。
+     */
+    if (parentNamespace != null) {// 表示是灰度发布
       messageCluster = parentNamespace.getClusterName();
-    } else {
+    } else {// 使用请求的 ClusterName
       messageCluster = clusterName;
     }
+    //发送 Release 消息 通知客户端
     messageSender.sendMessage(ReleaseMessageKeyGenerator.generate(appId, messageCluster, namespaceName),
                               Topics.APOLLO_RELEASE_TOPIC);
     return BeanUtils.transform(ReleaseDTO.class, release);
@@ -138,7 +157,7 @@ public class ReleaseController {
    * @param appId 应用id
    * @param clusterName 集群名称
    * @param namespaceName 命名空间
-   * @param releaseName
+   * @param releaseName 发布标题
    * @param branchName
    * @param deleteBranch
    * @param releaseComment

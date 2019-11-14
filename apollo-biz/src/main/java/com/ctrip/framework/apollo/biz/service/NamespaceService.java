@@ -226,13 +226,23 @@ public class NamespaceService {
     return findParentNamespace(new Namespace(appId, clusterName, namespaceName));
   }
 
+  /****
+   * 获得父 Namespace 对象，也就是判断是否是灰度发布
+   * @param namespace
+   * @return
+   */
   public Namespace findParentNamespace(Namespace namespace) {
+    //获得应用appid
     String appId = namespace.getAppId();
+    //获得命名空间的名称
     String namespaceName = namespace.getNamespaceName();
-
+    //获得 cluster集群信息
     Cluster cluster = clusterService.findOne(appId, namespace.getClusterName());
+    //如果cluster不为空，且cluster的parentClusterId>0，表示当前的cluster是个子cluster
     if (cluster != null && cluster.getParentClusterId() > 0) {
+      //查找父cluster
       Cluster parentCluster = clusterService.findOne(cluster.getParentClusterId());
+      //获得父命名空间
       return findOne(appId, parentCluster.getName(), namespaceName);
     }
 

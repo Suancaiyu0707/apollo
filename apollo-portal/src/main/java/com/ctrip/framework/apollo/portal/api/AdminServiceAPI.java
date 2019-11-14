@@ -267,6 +267,18 @@ public class AdminServiceAPI {
       return releaseDTO;
     }
 
+    /***
+     *  发布配置
+     * @param appId 应用id
+     * @param env 环境
+     * @param clusterName 集群名称
+     * @param namespace 命名空间
+     * @param releaseName 发布标题
+     * @param releaseComment 发布内容
+     * @param operator 发布人
+     * @param isEmergencyPublish 是否紧急
+     * @return
+     */
     public ReleaseDTO createRelease(String appId, Env env, String clusterName, String namespace,
         String releaseName, String releaseComment, String operator,
         boolean isEmergencyPublish) {
@@ -279,6 +291,7 @@ public class AdminServiceAPI {
       parameters.add("isEmergencyPublish", String.valueOf(isEmergencyPublish));
       HttpEntity<MultiValueMap<String, String>> entity =
           new HttpEntity<>(parameters, headers);
+      //这边会调用apollo-adminservice 中的 ReleaseController进行发布
       ReleaseDTO response = restTemplate.post(
           env, "apps/{appId}/clusters/{clusterName}/namespaces/{namespaceName}/releases", entity,
           ReleaseDTO.class, appId, clusterName, namespace);

@@ -53,6 +53,16 @@ public class ReleaseController {
     this.permissionValidator = permissionValidator;
   }
 
+  /***
+   * 点击发布
+   * @param appId
+   * @param env
+   * @param clusterName
+   * @param namespaceName
+   * @param model
+   * @return
+   */
+  //校验是否有发布配置的权限
   @PreAuthorize(value = "@permissionValidator.hasReleaseNamespacePermission(#appId, #namespaceName, #env)")
   @PostMapping(value = "/apps/{appId}/envs/{env}/clusters/{clusterName}/namespaces/{namespaceName}/releases")
   public ReleaseDTO createRelease(@PathVariable String appId,
@@ -62,13 +72,15 @@ public class ReleaseController {
     model.setEnv(env);
     model.setClusterName(clusterName);
     model.setNamespaceName(namespaceName);
-
+    /***
+     * 如果是紧急发布，但是当前环境未允许该操作，抛出 BadRequestException 异常
+     */
     if (model.isEmergencyPublish() && !portalConfig.isEmergencyPublishAllowed(Env.valueOf(env))) {
       throw new BadRequestException(String.format("Env: %s is not supported emergency publish now", env));
     }
-
+    // 发布配置
     ReleaseDTO createdRelease = releaseService.publish(model);
-
+    //创建一个 ConfigPublishEvent 配置发布事件对象
     ConfigPublishEvent event = ConfigPublishEvent.instance();
     event.withAppId(appId)
         .withCluster(clusterName)
@@ -76,7 +88,7 @@ public class ReleaseController {
         .withReleaseId(createdRelease.getId())
         .setNormalPublishEvent(true)
         .setEnv(Env.valueOf(env));
-
+    //发布一个事件 ConfigPublishEvent
     publisher.publishEvent(event);
 
     return createdRelease;

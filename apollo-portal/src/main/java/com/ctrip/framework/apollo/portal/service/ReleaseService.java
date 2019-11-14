@@ -42,15 +42,23 @@ public class ReleaseService {
     this.releaseAPI = releaseAPI;
   }
 
+  /***
+   * 发布配置
+   * @param model
+   * @return
+   */
   public ReleaseDTO publish(NamespaceReleaseModel model) {
     Env env = model.getEnv();
+    //是否紧急发布
     boolean isEmergencyPublish = model.isEmergencyPublish();
+    //获得appId
     String appId = model.getAppId();
     String clusterName = model.getClusterName();
     String namespaceName = model.getNamespaceName();
+    //获得发布人，默认是操作人
     String releaseBy = StringUtils.isEmpty(model.getReleasedBy()) ?
                        userInfoHolder.getUser().getUserId() : model.getReleasedBy();
-
+    //调用 Admin Service API ，发布 Namespace 的配置。
     ReleaseDTO releaseDTO = releaseAPI.createRelease(appId, env, clusterName, namespaceName,
                                                      model.getReleaseTitle(), model.getReleaseComment(),
                                                      releaseBy, isEmergencyPublish);
