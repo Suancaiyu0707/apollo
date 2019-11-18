@@ -34,30 +34,30 @@ public class DefaultRoleInitializationService implements RoleInitializationServi
   private RolePermissionService rolePermissionService;
   @Autowired
   private PortalConfig portalConfig;
-
+  //根据appId初始化应用角色信息
   @Transactional
   public void initAppRoles(App app) {
     String appId = app.getAppId();
-
+    //appMasterRoleName："master+"+ appId
     String appMasterRoleName = RoleUtils.buildAppMasterRoleName(appId);
 
-    //has created before
+    //has created before 不能重复创建，根据 appMasterRoleName 查询role 表
     if (rolePermissionService.findRoleByRoleName(appMasterRoleName) != null) {
       return;
     }
-    String operator = app.getDataChangeCreatedBy();
-    //create app permissions
+    String operator = app.getDataChangeCreatedBy();//获得操作人
+    //create app permissions 根据appid 和操作人创建appId的master roler角色
     createAppMasterRole(appId, operator);
 
-    //assign master role to user
+    //为用户分配 master 角色
     rolePermissionService
         .assignRoleToUsers(RoleUtils.buildAppMasterRoleName(appId), Sets.newHashSet(app.getOwnerName()),
             operator);
-
+    //创建默认的namespace和环境
     initNamespaceRoles(appId, ConfigConsts.NAMESPACE_APPLICATION, operator);
     initNamespaceEnvRoles(appId, ConfigConsts.NAMESPACE_APPLICATION, operator);
 
-    //assign modify、release namespace role to user
+    //assign modify、release namespace role to user 为用户分配 modify、release的namespace
     rolePermissionService.assignRoleToUsers(
         RoleUtils.buildNamespaceRoleName(appId, ConfigConsts.NAMESPACE_APPLICATION, RoleType.MODIFY_NAMESPACE),
         Sets.newHashSet(operator), operator);
@@ -106,7 +106,7 @@ public class DefaultRoleInitializationService implements RoleInitializationServi
           releaseNamespaceEnvRoleName, operator);
     }
   }
-
+  //默认角色
   private void createAppMasterRole(String appId, String operator) {
     Set<Permission> appPermissions =
         Stream.of(PermissionType.CREATE_CLUSTER, PermissionType.CREATE_NAMESPACE, PermissionType.ASSIGN_ROLE)
@@ -116,9 +116,16 @@ public class DefaultRoleInitializationService implements RoleInitializationServi
         appPermissionIds =
         createdAppPermissions.stream().map(BaseEntity::getId).collect(Collectors.toSet());
 
-    //create app master role
+    //create app master role 为app闯进啊 mater role
     Role appMasterRole = createRole(RoleUtils.buildAppMasterRoleName(appId), operator);
-
+    /**
+     * 根据角色和权限创建role：
+     *      Master+appid
+     *      ModifyNamespace+appid+application
+     *      ReleaseNamespace+appid+application
+     *      ModifyNamespace+appid+application+DEV
+     *      ReleaseNamespace+appid+application+DEV
+     */
     rolePermissionService.createRoleWithPermissions(appMasterRole, appPermissionIds);
   }
 

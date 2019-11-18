@@ -76,12 +76,19 @@ public class DefaultRolePermissionService implements RolePermissionService {
      *
      * @return the users assigned roles
      */
+    /***
+     *
+     * @param roleName 角色名称，默认role+"+"+appId
+     * @param userIds 管理员id列表
+     * @param operatorUserId 操作员id
+     * @return
+     */
     @Transactional
     public Set<String> assignRoleToUsers(String roleName, Set<String> userIds,
                                          String operatorUserId) {
-        Role role = findRoleByRoleName(roleName);
+        Role role = findRoleByRoleName(roleName);//查询角色名称是否存在
         Preconditions.checkState(role != null, "Role %s doesn't exist!", roleName);
-
+        //根据管理员id列表和角色id，查询用户角色
         List<UserRole> existedUserRoles =
                 userRoleRepository.findByUserIdInAndRoleId(userIds, role.getId());
         Set<String> existedUserIds =
@@ -218,6 +225,11 @@ public class DefaultRolePermissionService implements RolePermissionService {
 
     /**
      * Create permissions, note that permissionType + targetId should be unique
+     * 这个会默认创建四个Permissions：
+     *      ModifyNamespace->appid+"+application"
+     *      ReleaseNamespace->appid+"+application"
+     *      ModifyNamespace->appid+"+application"+"+DEV"
+     *      ReleaseNamespace->appid+"+application"+"+DEV"
      */
     @Transactional
     public Set<Permission> createPermissions(Set<Permission> permissions) {

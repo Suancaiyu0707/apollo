@@ -72,7 +72,7 @@ public class AppNamespaceService {
   public List<AppNamespace> findByAppId(String appId) {
     return appNamespaceRepository.findByAppId(appId);
   }
-
+  //为app 创建默认的命名空间
   @Transactional
   public void createDefaultAppNamespace(String appId) {
     if (!isAppNamespaceNameUnique(appId, ConfigConsts.NAMESPACE_APPLICATION)) {
@@ -90,7 +90,7 @@ public class AppNamespaceService {
 
     appNamespaceRepository.save(appNs);
   }
-
+  //命名空间名称校验：不能为空、不能重复
   public boolean isAppNamespaceNameUnique(String appId, String namespaceName) {
     Objects.requireNonNull(appId, "AppId must not be null");
     Objects.requireNonNull(namespaceName, "Namespace must not be null");

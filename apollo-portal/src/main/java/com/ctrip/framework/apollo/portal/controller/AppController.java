@@ -97,20 +97,28 @@ public class AppController {
     return appService.findByAppIds(appIds, page);
   }
 
+  /***
+   * 创建app
+   * @param appModel
+   * @return
+   */
   @PostMapping
   public App create(@Valid @RequestBody AppModel appModel) {
-
+    // 将 AppModel 转换成 App 对象
     App app = transformToApp(appModel);
-
+    // 保存 App 对象到数据库
     App createdApp = appService.createAppInLocal(app);
-
+    // 发布 AppCreationEvent 创建app的事件，会被CreationListener监听
     publisher.publishEvent(new AppCreationEvent(createdApp));
-
+    //获得app的管理员列表，授予App 管理员的角色
     Set<String> admins = appModel.getAdmins();
-    if (!CollectionUtils.isEmpty(admins)) {
+    if (!CollectionUtils.isEmpty(admins)) {//根据项目管理员创建权限
       rolePermissionService
-          .assignRoleToUsers(RoleUtils.buildAppMasterRoleName(createdApp.getAppId()),
-              admins, userInfoHolder.getUser().getUserId());
+          .assignRoleToUsers(//为管理员分配角色
+                  RoleUtils.buildAppMasterRoleName(createdApp.getAppId()),//根据应用id创建角色
+              admins, //管理员列表
+                  userInfoHolder.getUser().getUserId()//操作员id
+          );
     }
 
     return createdApp;
@@ -196,11 +204,11 @@ public class AppController {
   }
 
   private App transformToApp(AppModel appModel) {
-    String appId = appModel.getAppId();
-    String appName = appModel.getName();
-    String ownerName = appModel.getOwnerName();
-    String orgId = appModel.getOrgId();
-    String orgName = appModel.getOrgName();
+    String appId = appModel.getAppId();//获得应用id
+    String appName = appModel.getName();//app 名称
+    String ownerName = appModel.getOwnerName();//负责人
+    String orgId = appModel.getOrgId();//部门id
+    String orgName = appModel.getOrgName();//部门名称
 
     return App.builder()
         .appId(appId)

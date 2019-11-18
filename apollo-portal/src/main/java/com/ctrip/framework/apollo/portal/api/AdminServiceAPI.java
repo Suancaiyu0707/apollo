@@ -14,6 +14,7 @@ import com.ctrip.framework.apollo.common.dto.NamespaceLockDTO;
 import com.ctrip.framework.apollo.common.dto.PageDTO;
 import com.ctrip.framework.apollo.common.dto.ReleaseDTO;
 import com.ctrip.framework.apollo.common.dto.ReleaseHistoryDTO;
+import com.ctrip.framework.apollo.common.entity.App;
 import com.ctrip.framework.apollo.core.enums.Env;
 import com.google.common.base.Joiner;
 import java.util.Arrays;
@@ -43,7 +44,7 @@ public class AdminServiceAPI {
       return restTemplate.get(env, "/health", Health.class);
     }
   }
-
+  //实现 API 抽象类，封装对 Admin Service 的 App 模块的 API 调用
   @Service
   public static class AppAPI extends API {
 

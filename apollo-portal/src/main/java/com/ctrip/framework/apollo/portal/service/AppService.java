@@ -94,30 +94,36 @@ public class AppService {
     appAPI.createApp(env, appDTO);
   }
 
+  /***
+   *  保存 App 对象到数据库
+   * @param app
+   * @return
+   */
   @Transactional
   public App createAppInLocal(App app) {
-    String appId = app.getAppId();
+    String appId = app.getAppId();//获得 appid
+    // 判断 `appId` 是否已经存在对应的 App 对象。若已经存在，抛出 BadRequestException 异常。
     App managedApp = appRepository.findByAppId(appId);
-
     if (managedApp != null) {
       throw new BadRequestException(String.format("App already exists. AppId = %s", appId));
     }
-
+    //查询负责人详情
     UserInfo owner = userService.findByUserId(app.getOwnerName());
     if (owner == null) {
       throw new BadRequestException("Application's owner not exist.");
     }
     app.setOwnerEmail(owner.getEmail());
-
+    //查询操作人详情
     String operator = userInfoHolder.getUser().getUserId();
     app.setDataChangeCreatedBy(operator);
     app.setDataChangeLastModifiedBy(operator);
-
+    //保存app
     App createdApp = appRepository.save(app);
-
+    // 创建 App 的默认命名空间 "application"
     appNamespaceService.createDefaultAppNamespace(appId);
+    // 初始化 App 角色
     roleInitializationService.initAppRoles(createdApp);
-
+    //Tracer 日志
     Tracer.logEvent(TracerEventType.CREATE_APP, appId);
 
     return createdApp;
