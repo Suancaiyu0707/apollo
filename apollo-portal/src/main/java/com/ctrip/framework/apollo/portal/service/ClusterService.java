@@ -27,9 +27,10 @@ public class ClusterService {
   }
 
   public ClusterDTO createCluster(Env env, ClusterDTO cluster) {
+    //根据appId、环境、集群名称 判断集群的唯一性
     if (!clusterAPI.isClusterUnique(cluster.getAppId(), env, cluster.getName())) {
       throw new BadRequestException(String.format("cluster %s already exists.", cluster.getName()));
-    }
+    }//创建集群信息
     ClusterDTO clusterDTO = clusterAPI.create(env, cluster);
 
     Tracer.logEvent(TracerEventType.CREATE_CLUSTER, cluster.getAppId(), "0", cluster.getName());

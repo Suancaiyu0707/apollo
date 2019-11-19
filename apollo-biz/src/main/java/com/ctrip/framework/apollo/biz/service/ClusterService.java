@@ -62,27 +62,43 @@ public class ClusterService {
     return clusters;
   }
 
+  /***
+   *
+   * @param entity
+   * @return
+   * 可以发现，saveWithInstanceOfAppNamespaces本身也是调用的 saveWithoutInstanceOfAppNamespaces
+   */
   @Transactional
   public Cluster saveWithInstanceOfAppNamespaces(Cluster entity) {
-
+    //添加一条集群记录
     Cluster savedCluster = saveWithoutInstanceOfAppNamespaces(entity);
-
+    //同时为该appId下的所有appNamespace创建一条namespace记录。
+    //用于维护cluster和appId、NamespaceName和关系
     namespaceService.instanceOfAppNamespaces(savedCluster.getAppId(), savedCluster.getName(),
                                              savedCluster.getDataChangeCreatedBy());
 
     return savedCluster;
   }
 
+  /***
+   * 添加一条集群记录
+   * @param entity
+   * @return
+   */
   @Transactional
   public Cluster saveWithoutInstanceOfAppNamespaces(Cluster entity) {
+    //检查应用下面的集群名称的唯一性
     if (!isClusterNameUnique(entity.getAppId(), entity.getName())) {
       throw new BadRequestException("cluster not unique");
     }
     entity.setId(0);//protection
+    //创建集群信息记录
     Cluster cluster = clusterRepository.save(entity);
-
-    auditService.audit(Cluster.class.getSimpleName(), cluster.getId(), Audit.OP.INSERT,
-                       cluster.getDataChangeCreatedBy());
+    //添加一条审计记录
+    auditService.audit(Cluster.class.getSimpleName(), //表名
+                  cluster.getId(), //对应表的记录id
+                  Audit.OP.INSERT, //操作类型
+                  cluster.getDataChangeCreatedBy());//操作人
 
     return cluster;
   }

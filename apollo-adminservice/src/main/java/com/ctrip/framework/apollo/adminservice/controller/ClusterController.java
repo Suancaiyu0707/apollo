@@ -27,16 +27,24 @@ public class ClusterController {
     this.clusterService = clusterService;
   }
 
+  /***
+   * 创建集群信息
+   * @param appId
+   * @param autoCreatePrivateNamespace
+   * @param dto
+   * @return
+   */
   @PostMapping("/apps/{appId}/clusters")
   public ClusterDTO create(@PathVariable("appId") String appId,
                            @RequestParam(value = "autoCreatePrivateNamespace", defaultValue = "true") boolean autoCreatePrivateNamespace,
                            @Valid @RequestBody ClusterDTO dto) {
     Cluster entity = BeanUtils.transform(Cluster.class, dto);
+    //根据集群名称和appId 检查集群名称是否重复
     Cluster managedEntity = clusterService.findOne(appId, entity.getName());
     if (managedEntity != null) {
       throw new BadRequestException("cluster already exist.");
     }
-
+    //是否是private私有的命名空间
     if (autoCreatePrivateNamespace) {
       entity = clusterService.saveWithInstanceOfAppNamespaces(entity);
     } else {

@@ -29,14 +29,22 @@ public class ClusterController {
     this.userInfoHolder = userInfoHolder;
   }
 
+  /***
+   * 创建一个集群
+   * @param appId appId
+   * @param env 环境
+   * @param cluster 集群信息
+   * @return
+   */
   @PreAuthorize(value = "@permissionValidator.hasCreateClusterPermission(#appId)")
   @PostMapping(value = "apps/{appId}/envs/{env}/clusters")
   public ClusterDTO createCluster(@PathVariable String appId, @PathVariable String env,
                                   @Valid @RequestBody ClusterDTO cluster) {
+    //操作人
     String operator = userInfoHolder.getUser().getUserId();
     cluster.setDataChangeLastModifiedBy(operator);
     cluster.setDataChangeCreatedBy(operator);
-
+    //创建集群信息
     return clusterService.createCluster(Env.valueOf(env), cluster);
   }
 

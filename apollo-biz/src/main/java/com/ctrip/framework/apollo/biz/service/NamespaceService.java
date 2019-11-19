@@ -350,7 +350,7 @@ public class NamespaceService {
 
   @Transactional
   public void instanceOfAppNamespaces(String appId, String clusterName, String createBy) {
-
+    //根据appid查询所有的namespace
     List<AppNamespace> appNamespaces = appNamespaceService.findByAppId(appId);
 
     for (AppNamespace appNamespace : appNamespaces) {

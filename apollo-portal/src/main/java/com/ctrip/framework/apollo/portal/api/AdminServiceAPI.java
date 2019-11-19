@@ -201,14 +201,14 @@ public class AdminServiceAPI {
       return restTemplate.get(env, "apps/{appId}/clusters/{clusterName}", ClusterDTO.class,
           appId, clusterName);
     }
-
+    //判断集群信息是否唯一,调用 adminService.ClusterController进行校验
     public boolean isClusterUnique(String appId, Env env, String clusterName) {
       return restTemplate
           .get(env, "apps/{appId}/cluster/{clusterName}/unique", Boolean.class,
               appId, clusterName);
 
     }
-
+    //创建cluster集群信息。调用 adminService.ClusterController.clusters进行校验
     public ClusterDTO create(Env env, ClusterDTO cluster) {
       return restTemplate.post(env, "apps/{appId}/clusters", cluster, ClusterDTO.class,
           cluster.getAppId());
