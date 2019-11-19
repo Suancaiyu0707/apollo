@@ -66,17 +66,18 @@ public class ItemController {
   public ItemDTO createItem(@PathVariable String appId, @PathVariable String env,
                             @PathVariable String clusterName, @PathVariable String namespaceName,
                             @RequestBody ItemDTO item) {
-    checkModel(isValidItem(item));
+    checkModel(isValidItem(item));//校验 Item 格式正确
 
     //protect
     item.setLineNum(0);
     item.setId(0);
+    // 设置 ItemDTO 的创建和修改人为当前管理员
     String userId = userInfoHolder.getUser().getUserId();
     item.setDataChangeCreatedBy(userId);
     item.setDataChangeLastModifiedBy(userId);
     item.setDataChangeCreatedTime(null);
     item.setDataChangeLastModifiedTime(null);
-
+    // 保存 Item 到 Admin Service
     return configService.createItem(appId, Env.valueOf(env), clusterName, namespaceName, item);
   }
 
@@ -217,6 +218,7 @@ public class ItemController {
   }
 
   private boolean isValidItem(ItemDTO item) {
+    //item非空且key非空
     return Objects.nonNull(item) && !StringUtils.isContainEmpty(item.getKey());
   }
 

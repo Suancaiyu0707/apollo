@@ -15,17 +15,17 @@ import javax.persistence.Table;
 @SQLDelete(sql = "Update Item set isDeleted = 1 where id = ?")
 @Where(clause = "isDeleted = 0")
 public class Item extends BaseEntity {
-
+  //namespace的id
   @Column(name = "NamespaceId", nullable = false)
   private long namespaceId;
-
+  //属性的key
   @Column(name = "key", nullable = false)
   private String key;
-
+  //属性值
   @Column(name = "value")
   @Lob
   private String value;
-
+  //属性的描述
   @Column(name = "comment")
   private String comment;
 

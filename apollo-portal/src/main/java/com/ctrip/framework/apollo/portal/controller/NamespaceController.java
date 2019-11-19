@@ -124,11 +124,11 @@ public class NamespaceController {
   @PostMapping("/apps/{appId}/namespaces")
   public ResponseEntity<Void> createNamespace(@PathVariable String appId,
                                               @RequestBody List<NamespaceCreationModel> models) {
-
+    //每个集群和环境对应一个model
     checkModel(!CollectionUtils.isEmpty(models));
-
+    //关联的namespace
     String namespaceName = models.get(0).getNamespace().getNamespaceName();
-    String operator = userInfoHolder.getUser().getUserId();
+    String operator = userInfoHolder.getUser().getUserId();//操作人
 
     roleInitializationService.initNamespaceRoles(appId, namespaceName, operator);
     roleInitializationService.initNamespaceEnvRoles(appId, namespaceName, operator);

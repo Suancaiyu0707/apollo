@@ -69,13 +69,13 @@ public class DefaultRoleInitializationService implements RoleInitializationServi
 
   @Transactional
   public void initNamespaceRoles(String appId, String namespaceName, String operator) {
-
+    //初始化一条可修改对应namespace的权限
     String modifyNamespaceRoleName = RoleUtils.buildModifyNamespaceRoleName(appId, namespaceName);
-    if (rolePermissionService.findRoleByRoleName(modifyNamespaceRoleName) == null) {
+    if (rolePermissionService.findRoleByRoleName(modifyNamespaceRoleName) == null) {//查询role表
       createNamespaceRole(appId, namespaceName, PermissionType.MODIFY_NAMESPACE,
-          modifyNamespaceRoleName, operator);
+          modifyNamespaceRoleName, operator);//创建一条修改namespacce的权限
     }
-
+    //维护角色和对应的namespace的权限的的关联关系(类似于赋权)
     String releaseNamespaceRoleName = RoleUtils.buildReleaseNamespaceRoleName(appId, namespaceName);
     if (rolePermissionService.findRoleByRoleName(releaseNamespaceRoleName) == null) {
       createNamespaceRole(appId, namespaceName, PermissionType.RELEASE_NAMESPACE,
@@ -91,7 +91,7 @@ public class DefaultRoleInitializationService implements RoleInitializationServi
       initNamespaceSpecificEnvRoles(appId, namespaceName, env.toString(), operator);
     }
   }
-
+  //为操作人赋予相应的角色权限
   @Transactional
   public void initNamespaceSpecificEnvRoles(String appId, String namespaceName, String env, String operator) {
     String modifyNamespaceEnvRoleName = RoleUtils.buildModifyNamespaceRoleName(appId, namespaceName, env);
@@ -148,7 +148,7 @@ public class DefaultRoleInitializationService implements RoleInitializationServi
 
   private void createNamespaceRole(String appId, String namespaceName, String permissionType,
                                    String roleName, String operator) {
-
+    //创建一条RolePermission记录
     Permission permission =
         createPermission(RoleUtils.buildNamespaceTargetId(appId, namespaceName), permissionType, operator);
     Permission createdPermission = rolePermissionService.createPermission(permission);

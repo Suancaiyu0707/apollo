@@ -10,22 +10,35 @@ import javax.persistence.Entity;
 import javax.persistence.Lob;
 import javax.persistence.Table;
 
+/**
+ * 记录Item历史变化记录
+ */
 @Entity
 @Table(name = "Commit")
 @SQLDelete(sql = "Update Commit set isDeleted = 1 where id = ?")
 @Where(clause = "isDeleted = 0")
 public class Commit extends BaseEntity {
-
+  /**
+   * 变更集合。
+   *
+   * JSON 格式化，使用 {@link com.ctrip.framework.apollo.biz.utils.ConfigChangeContentBuilder} 生成
+   */
   @Lob
   @Column(name = "ChangeSets", nullable = false)
   private String changeSets;
-
+  /**
+   * App 编号
+   */
   @Column(name = "AppId", nullable = false)
   private String appId;
-
+  /**
+   * Cluster 名字
+   */
   @Column(name = "ClusterName", nullable = false)
   private String clusterName;
-
+  /**
+   * Namespace 名字
+   */
   @Column(name = "NamespaceName", nullable = false)
   private String namespaceName;
 

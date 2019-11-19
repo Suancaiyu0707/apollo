@@ -12,6 +12,9 @@ import org.springframework.data.repository.query.Param;
 
 /**
  * @author Jason Song(song_s@ctrip.com)
+ *
+ * 权限表:ApolloPortalDB.permission
+ *
  */
 public interface PermissionRepository extends PagingAndSortingRepository<Permission, Long> {
   /**
