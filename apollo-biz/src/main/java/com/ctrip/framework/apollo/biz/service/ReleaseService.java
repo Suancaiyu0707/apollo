@@ -178,13 +178,14 @@ public class ReleaseService {
                          String operator, boolean isEmergencyPublish) {
     //检验 namespace 的锁定，如果是紧急发布的话，则不检验。检验发布人和编辑的人是否同一个
     checkLock(namespace, isEmergencyPublish, operator);
-    // 获得 Namespace 的普通配置 Map，从这里我们可以发现，都是String,String
+    // 获得 Namespace 的普通配置 Map，从这里我们可以发现，都是<String,String>
     Map<String, String> operateNamespaceItems = getNamespaceItems(namespace);
-    // 获得父 Namespace
+    // 获得父 Namespace, 判断是否灰度发布
     Namespace parentNamespace = namespaceService.findParentNamespace(namespace);
 
     //branch release
     if (parentNamespace != null) {//若有父 Namespace ，则是子 Namespace ，进行灰度发布
+      //客户端即使在灰度发布的情况下，也是使用 父 Namespace 的 Cluster 名字。也就说，灰度发布，对客户端是透明无感知的
       return publishBranchNamespace(parentNamespace, namespace, operateNamespaceItems,
                                     releaseName, releaseComment, operator, isEmergencyPublish);
     }
@@ -380,7 +381,7 @@ public class ReleaseService {
   private Release masterRelease(Namespace namespace, String releaseName, String releaseComment,
                                 Map<String, String> configurations, String operator,
                                 int releaseOperation, Map<String, Object> operationContext) {
-    // 获得最后有效的 Release 对象
+    // 获得最后有效的 Release 对象（多个灰度版本，只看最后一个）
     Release lastActiveRelease = findLatestActiveRelease(namespace);
     long previousReleaseId = lastActiveRelease == null ? 0 : lastActiveRelease.getId();
     // 创建 Release 对象，并保存
@@ -468,6 +469,17 @@ public class ReleaseService {
     return configurations;
   }
 
+  /***
+   * 创建发布记录：Relase
+   * 创建一条审计日志：audit
+   * 释放锁：删除数据库中的记录
+   * @param namespace
+   * @param name
+   * @param comment
+   * @param configurations
+   * @param operator
+   * @return
+   */
   private Release createRelease(Namespace namespace, String name, String comment,
                                 Map<String, String> configurations, String operator) {
     Release release = new Release();
@@ -481,9 +493,11 @@ public class ReleaseService {
     release.setClusterName(namespace.getClusterName());
     release.setNamespaceName(namespace.getNamespaceName());
     release.setConfigurations(gson.toJson(configurations));
+    //添加一条发布记录release
     release = releaseRepository.save(release);
-
+    //释放锁，从刚才数据库里的删掉
     namespaceLockService.unlock(namespace.getId());
+    //添加一条审计日志
     auditService.audit(Release.class.getSimpleName(), release.getId(), Audit.OP.INSERT,
                        release.getDataChangeCreatedBy());
 

@@ -191,7 +191,15 @@ public class NamespaceService {
     return namespaceRepository.findByAppIdAndNamespaceNameOrderByIdAsc(appId, namespaceName);
   }
 
+  /**
+   * 查找当前namespace的所有灰度灰度的分支(cluster)
+   * @param appId
+   * @param parentClusterName
+   * @param namespaceName
+   * @return
+   */
   public Namespace findChildNamespace(String appId, String parentClusterName, String namespaceName) {
+    //根据appId和namespace查找namespace表，如果大于1，则表示没有子namespaace
     List<Namespace> namespaces = findByAppIdAndNamespaceName(appId, namespaceName);
     if (CollectionUtils.isEmpty(namespaces) || namespaces.size() == 1) {
       return null;
@@ -213,6 +221,11 @@ public class NamespaceService {
     return null;
   }
 
+  /***
+   *
+   * @param parentNamespace
+   * @return
+   */
   public Namespace findChildNamespace(Namespace parentNamespace) {
     String appId = parentNamespace.getAppId();
     String parentClusterName = parentNamespace.getClusterName();
@@ -228,6 +241,7 @@ public class NamespaceService {
 
   /****
    * 获得父 Namespace 对象，也就是判断是否是灰度发布
+   *    如果某条cluster记录的parentClusterId>0，则 表示试一次灰度发布
    * @param namespace
    * @return
    */
