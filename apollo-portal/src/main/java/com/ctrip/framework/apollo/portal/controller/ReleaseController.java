@@ -68,10 +68,10 @@ public class ReleaseController {
   public ReleaseDTO createRelease(@PathVariable String appId,
                                   @PathVariable String env, @PathVariable String clusterName,
                                   @PathVariable String namespaceName, @RequestBody NamespaceReleaseModel model) {
-    model.setAppId(appId);
-    model.setEnv(env);
-    model.setClusterName(clusterName);
-    model.setNamespaceName(namespaceName);
+    model.setAppId(appId);//app id
+    model.setEnv(env);//环境
+    model.setClusterName(clusterName);//集群地址
+    model.setNamespaceName(namespaceName);//命名空间
     /***
      * 如果是紧急发布，但是当前环境未允许该操作，抛出 BadRequestException 异常
      */

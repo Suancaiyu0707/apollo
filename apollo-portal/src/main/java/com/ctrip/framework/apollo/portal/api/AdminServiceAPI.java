@@ -14,7 +14,6 @@ import com.ctrip.framework.apollo.common.dto.NamespaceLockDTO;
 import com.ctrip.framework.apollo.common.dto.PageDTO;
 import com.ctrip.framework.apollo.common.dto.ReleaseDTO;
 import com.ctrip.framework.apollo.common.dto.ReleaseHistoryDTO;
-import com.ctrip.framework.apollo.common.entity.App;
 import com.ctrip.framework.apollo.core.enums.Env;
 import com.google.common.base.Joiner;
 import java.util.Arrays;
@@ -40,9 +39,9 @@ public class AdminServiceAPI {
   @Service
   public static class HealthAPI extends API {
 
-    public Health health(Env env) {
-      return restTemplate.get(env, "/health", Health.class);
-    }
+      public Health health(Env env) {
+          return restTemplate.get(env, "/health", Health.class);
+      }
   }
   //实现 API 抽象类，封装对 Admin Service 的 App 模块的 API 调用
   @Service
@@ -220,6 +219,10 @@ public class AdminServiceAPI {
     }
   }
 
+  /***
+   *    封装对 Admin Service 的 Release 模块的 API 调用
+   *
+   */
   @Service
   public static class ReleaseAPI extends API {
 
@@ -286,10 +289,10 @@ public class AdminServiceAPI {
       HttpHeaders headers = new HttpHeaders();
       headers.setContentType(MediaType.parseMediaType(MediaType.APPLICATION_FORM_URLENCODED_VALUE + ";charset=UTF-8"));
       MultiValueMap<String, String> parameters = new LinkedMultiValueMap<>();
-      parameters.add("name", releaseName);
-      parameters.add("comment", releaseComment);
-      parameters.add("operator", operator);
-      parameters.add("isEmergencyPublish", String.valueOf(isEmergencyPublish));
+      parameters.add("name", releaseName);//分布名称
+      parameters.add("comment", releaseComment);//分布的备注
+      parameters.add("operator", operator);//操作人
+      parameters.add("isEmergencyPublish", String.valueOf(isEmergencyPublish));//是否紧急发布
       HttpEntity<MultiValueMap<String, String>> entity =
           new HttpEntity<>(parameters, headers);
       //这边会调用apollo-adminservice 中的 ReleaseController进行发布

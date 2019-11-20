@@ -52,9 +52,9 @@ public class ReleaseService {
     //是否紧急发布
     boolean isEmergencyPublish = model.isEmergencyPublish();
     //获得appId
-    String appId = model.getAppId();
-    String clusterName = model.getClusterName();
-    String namespaceName = model.getNamespaceName();
+    String appId = model.getAppId();//获得 app id
+    String clusterName = model.getClusterName(); //获得集群名称
+    String namespaceName = model.getNamespaceName();//获得命名空间
     //获得发布人，默认是操作人
     String releaseBy = StringUtils.isEmpty(model.getReleasedBy()) ?
                        userInfoHolder.getUser().getUserId() : model.getReleasedBy();

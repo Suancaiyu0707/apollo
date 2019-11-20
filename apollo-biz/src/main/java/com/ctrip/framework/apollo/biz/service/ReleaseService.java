@@ -284,7 +284,7 @@ public class ReleaseService {
     //每个命名空间维护一个lock
     //如果不是紧急发布，根据命名空间找到对应的lock
     if (!isEmergencyPublish) {// 非紧急发布
-      // 获得 NamespaceLock 对象锁
+      // 获得 NamespaceLock 对象锁，通过数据库记录来实现锁(好蛋疼)
       NamespaceLock lock = namespaceLockService.findLock(namespace.getId());
       //如果找不到锁，判断数据变更是否跟操作人是同一个人，如果不是的话，则抛出异常
       if (lock != null && lock.getDataChangeCreatedBy().equals(operator)) {
