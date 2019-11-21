@@ -44,7 +44,8 @@ public class DatabaseMessageSender implements MessageSender {
   }
 
   /***
-   * 往ReleaseMessage表插入一条消息记录
+   * 1、往ReleaseMessage表插入一条消息记录，后续有一个定时任务会扫描该表
+   * 2、往队列里添加一条ReleaseMessage的id，用于清除当前appid+clusterid+namespace对应的旧的历史发布记录
    * @param message
    * @param channel
    */
@@ -60,9 +61,9 @@ public class DatabaseMessageSender implements MessageSender {
     Tracer.logEvent("Apollo.AdminService.ReleaseMessage", message);
     Transaction transaction = Tracer.newTransaction("Apollo.AdminService", "sendMessage");
     try {
-      //往数据库里保存一条记录
+      //往数据库ReleaseMessage表里保存一条记录，后续有一个定时任务会扫描该表
       ReleaseMessage newMessage = releaseMessageRepository.save(new ReleaseMessage(message));
-      //向队列里添加一条消息
+      //向队列里添加一条消息，因为有一个线程会根据这个队列的id，去移除旧的发布记录
       toClean.offer(newMessage.getId());
       transaction.setStatus(Transaction.SUCCESS);
     } catch (Throwable ex) {
@@ -76,6 +77,8 @@ public class DatabaseMessageSender implements MessageSender {
 
   /***
    * 初始化一个线程，不停的从队列里取消息，如果队列为空，则等待6s
+   * 1、轮询的从队列里获得已添加到ReleaseMessage表的记录的id
+   * 2、
    */
   @PostConstruct
   private void initialize() {
@@ -97,23 +100,24 @@ public class DatabaseMessageSender implements MessageSender {
   }
 
   /****
-   * 根据id 从数据库查询发布的记录
+   * 当有一条关于：appid+clusterId+namespace 发布了新的配置，则会触发定时任务调用该方法：
+   *      该方法主要是用于清理同样的：appid+clusterId+namespace 下的过去的发布记录，因为记录当前发布新的了，那么之前旧的就没必要保留了
    * @param id
    */
   private void cleanMessage(Long id) {
     boolean hasMore = true;
     //double check in case the release message is rolled back
-    //根据id 从数据库查询发布的记录
+    //根据id 从数据库查询发布的记录：ReleaseMessage
     ReleaseMessage releaseMessage = releaseMessageRepository.findById(id).orElse(null);
     if (releaseMessage == null) {
       return;
     }
-    //获取到对应的发布记录
+    //获取到对应的历史的发布记录
     while (hasMore && !Thread.currentThread().isInterrupted()) {
       //根据消息获得它最近的id对应的ReleaseMessage，可能并发修改
       List<ReleaseMessage> messages = releaseMessageRepository.findFirst100ByMessageAndIdLessThanOrderByIdAsc(
           releaseMessage.getMessage(), releaseMessage.getId());
-
+      //清理掉当前发布的 appid+clusterId+namespace 对应的过去发布记录，这样只要保留最新的就好了
       releaseMessageRepository.deleteAll(messages);
       hasMore = messages.size() == 100;
 

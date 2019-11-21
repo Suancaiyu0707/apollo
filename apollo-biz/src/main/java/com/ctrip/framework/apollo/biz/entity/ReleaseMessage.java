@@ -22,7 +22,7 @@ public class ReleaseMessage {
   @GeneratedValue(strategy = GenerationType.IDENTITY)
   @Column(name = "Id")
   private long id;
-  //消息内容
+  //消息内容的id
   @Column(name = "Message", nullable = false)
   private String message;
 
