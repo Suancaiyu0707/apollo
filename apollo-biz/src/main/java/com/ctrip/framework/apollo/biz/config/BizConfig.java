@@ -121,6 +121,11 @@ public class BizConfig extends RefreshableConfig {
     return TimeUnit.SECONDS;
   }
 
+  /***
+   * 获得定时扫描ReleaseMessage的时间，默认是1s。可通过apollo.message-scan.interval来配置
+   * 这个定时时间范围有限制：100ms以上
+   * @return
+   */
   public int releaseMessageScanIntervalInMilli() {
     int interval = getIntProperty("apollo.message-scan.interval", DEFAULT_RELEASE_MESSAGE_SCAN_INTERVAL_IN_MS);
     return checkInt(interval, 100, Integer.MAX_VALUE, DEFAULT_RELEASE_MESSAGE_SCAN_INTERVAL_IN_MS);
