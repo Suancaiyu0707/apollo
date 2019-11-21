@@ -89,7 +89,7 @@ public class DatabaseMessageSender implements MessageSender {
           //获得发布的新版本记录
           if (rm != null) {
             cleanMessage(rm);
-          } else {
+          } else {// 队列为空，sleep ，避免空跑，占用 CPU
             TimeUnit.SECONDS.sleep(5);
           }
         } catch (Throwable ex) {
@@ -114,11 +114,14 @@ public class DatabaseMessageSender implements MessageSender {
     }
     //获取到对应的历史的发布记录
     while (hasMore && !Thread.currentThread().isInterrupted()) {
-      //根据消息获得它最近的id对应的ReleaseMessage，可能并发修改
+      // 拉取相同消息内容的 100 条的老消息
+      // 老消息的定义：比当前消息编号小，即先发送的
+      // 按照 id 升序
       List<ReleaseMessage> messages = releaseMessageRepository.findFirst100ByMessageAndIdLessThanOrderByIdAsc(
           releaseMessage.getMessage(), releaseMessage.getId());
       //清理掉当前发布的 appid+clusterId+namespace 对应的过去发布记录，这样只要保留最新的就好了
       releaseMessageRepository.deleteAll(messages);
+      // 若拉取不足 100 条，说明无老消息了
       hasMore = messages.size() == 100;
 
       messages.forEach(toRemove -> Tracer.logEvent(
