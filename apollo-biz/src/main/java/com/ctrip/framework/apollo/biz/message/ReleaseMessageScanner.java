@@ -30,13 +30,18 @@ public class ReleaseMessageScanner implements InitializingBean {
   private BizConfig bizConfig;
   @Autowired
   private ReleaseMessageRepository releaseMessageRepository;
+  //定时扫描的频率
   private int databaseScanInterval;
+  //注册到服务端的监听器监
   private List<ReleaseMessageListener> listeners;
+  //定时任务
   private ScheduledExecutorService executorService;
+  //最后扫描到的 ReleaseMessage 的编号
   private long maxIdScanned;
 
   public ReleaseMessageScanner() {
     listeners = Lists.newCopyOnWriteArrayList();
+    //初始化定时任务
     executorService = Executors.newScheduledThreadPool(1, ApolloThreadFactory
         .create("ReleaseMessageScanner", true));
   }
@@ -100,17 +105,18 @@ public class ReleaseMessageScanner implements InitializingBean {
    *
    */
   private boolean scanAndSendMessages() {
-    //查询 ReleaseMessage，每次从大于当前缓存的maxIdScanned中取最小的500条。
+    //查询 ReleaseMessage，获得大于 maxIdScanned 的 500 条 ReleaseMessage 记录，按照 id 升序
     List<ReleaseMessage> releaseMessages =
         releaseMessageRepository.findFirst500ByIdGreaterThanOrderByIdAsc(maxIdScanned);
     if (CollectionUtils.isEmpty(releaseMessages)) {
       return false;
     }
-    //遍历发布消息并通知客户端
+    //触发监听器，遍历发布消息并通知客户端
     fireMessageScanned(releaseMessages);
-    //记录已通知客户端的最大的发布id
+    //获得新的 maxIdScanned ，取最后一条记录
     int messageScanned = releaseMessages.size();
     maxIdScanned = releaseMessages.get(messageScanned - 1).getId();
+    // 若拉取不足 500 条，说明无新消息了
     return messageScanned == 500;
   }
 

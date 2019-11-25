@@ -43,6 +43,14 @@ public class WatchKeysUtil {
    *
    * @return a multimap with namespace as the key and watch keys as the value
    */
+  /***
+   *
+   * @param appId  appId
+   * @param clusterName 集群名称
+   * @param namespaces namespace集合(一个客户端可能使用了多个namespace)
+   * @param dataCenter 数据中心
+   * @return
+   */
   public Multimap<String, String> assembleAllWatchKeys(String appId, String clusterName,
                                                        Set<String> namespaces,
                                                        String dataCenter) {
@@ -90,6 +98,17 @@ public class WatchKeysUtil {
     return STRING_JOINER.join(appId, cluster, namespace);
   }
 
+  /***
+   *
+   * @param appId  appId
+   * @param clusterName 集群名称
+   * @param namespace namespace(耽搁)
+   * @param dataCenter 数据中心
+   * @return
+   *  组装返回需要监听的key:
+   *    appid+clustername+ namespace
+   *    appid+datacenter+ namespace
+   */
   private Set<String> assembleWatchKeys(String appId, String clusterName, String namespace,
                                         String dataCenter) {
     if (ConfigConsts.NO_APPID_PLACEHOLDER.equalsIgnoreCase(appId)) {
@@ -97,27 +116,35 @@ public class WatchKeysUtil {
     }
     Set<String> watchedKeys = Sets.newHashSet();
 
-    //watch specified cluster config change
+    //监听非默认default的集群的变化
     if (!Objects.equals(ConfigConsts.CLUSTER_NAME_DEFAULT, clusterName)) {
       watchedKeys.add(assembleKey(appId, clusterName, namespace));
     }
 
-    //watch data center config change
+    //监听数据中心的消息的变化
     if (!Strings.isNullOrEmpty(dataCenter) && !Objects.equals(dataCenter, clusterName)) {
       watchedKeys.add(assembleKey(appId, dataCenter, namespace));
     }
 
-    //watch default cluster config change
+    //监听默认的集群名称default的变化
     watchedKeys.add(assembleKey(appId, ConfigConsts.CLUSTER_NAME_DEFAULT, namespace));
 
     return watchedKeys;
   }
 
+  /***
+   *
+   * @param appId  appId
+   * @param clusterName 集群名称
+   * @param namespaces namespace集合(一个客户端可能使用了多个namespace)
+   * @param dataCenter 数据中心
+   * @return
+   */
   private Multimap<String, String> assembleWatchKeys(String appId, String clusterName,
                                                      Set<String> namespaces,
                                                      String dataCenter) {
     Multimap<String, String> watchedKeysMap = HashMultimap.create();
-
+    //遍历namespace，
     for (String namespace : namespaces) {
       watchedKeysMap
           .putAll(namespace, assembleWatchKeys(appId, clusterName, namespace, dataCenter));
