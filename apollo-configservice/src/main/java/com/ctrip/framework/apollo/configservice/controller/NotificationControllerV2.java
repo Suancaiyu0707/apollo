@@ -303,9 +303,13 @@ public class NotificationControllerV2 implements ReleaseMessageListener {
   }
 
   /***
-   * 通知监听的客户端开始处理消息
+   * 通知监听的客户端开始处理消息。
+   * 当有新的 ReleaseMessage 时，通知其对应的 Namespace 的，并且正在等待的请求
    * @param message
    * @param channel
+   *
+   * 假设一个公共 Namespace 有10W 台机器使用，如果该公共 Namespace 发布时直接下发配置更新消息的话，就会导致这 10W 台机器一下子都来请求配置，
+   *  这动静就有点大了，而且对 Config Service 的压力也会比较大。
    */
   @Override
   public void handleMessage(ReleaseMessage message, String channel) {
@@ -313,6 +317,7 @@ public class NotificationControllerV2 implements ReleaseMessageListener {
     //获得消息
     String content = message.getMessage();
     Tracer.logEvent("Apollo.LongPoll.Messages", content);
+    // 仅处理 APOLLO_RELEASE_TOPIC
     if (!Topics.APOLLO_RELEASE_TOPIC.equals(channel) || Strings.isNullOrEmpty(content)) {
       return;
     }
@@ -323,24 +328,27 @@ public class NotificationControllerV2 implements ReleaseMessageListener {
       logger.error("message format invalid - {}", content);
       return;
     }
-    //如果该监听器不监听这个namespace，则返回
+    // 判断`deferredResults` 是否存在对应的 Watch Key。也就是如果该监听器不监听这个namespace，则返回
     if (!deferredResults.containsKey(content)) {
       return;
     }
 
     //create a new list to avoid ConcurrentModificationException
+    // 如果`deferredResults` 存在对应的 Watch Key，创建 DeferredResultWrapper 数组，避免并发问题。
     List<DeferredResultWrapper> results = Lists.newArrayList(deferredResults.get(content));
-
+    // 创建 ApolloConfigNotification 对象
     ApolloConfigNotification configNotification = new ApolloConfigNotification(changedNamespace, message.getId());
     configNotification.addMessage(content, message.getId());
 
     //do async notification if too many clients
-    //异步通知客户端
+    // 若需要通知的客户端过多，使用 ExecutorService 异步通知，避免“惊群效应”
+    //数量可通过 ServerConfig "apollo.release-message.notification.batch" 配置，默认 100 。
     if (results.size() > bizConfig.releaseMessageNotificationBatch()) {
       largeNotificationBatchExecutorService.submit(() -> {
         logger.debug("Async notify {} clients for key {} with batch {}", results.size(), content,
             bizConfig.releaseMessageNotificationBatch());
         for (int i = 0; i < results.size(); i++) {
+          // 每 N 个客户端，sleep 一段时间。
           if (i > 0 && i % bizConfig.releaseMessageNotificationBatch() == 0) {
             try {
               TimeUnit.MILLISECONDS.sleep(bizConfig.releaseMessageNotificationBatchIntervalInMilli());
@@ -349,6 +357,7 @@ public class NotificationControllerV2 implements ReleaseMessageListener {
             }
           }
           logger.debug("Async notify {}", results.get(i));
+          // 设置 DeferredResult 的结果，从而结束长轮询。
           results.get(i).setResult(configNotification);
         }
       });
@@ -356,7 +365,7 @@ public class NotificationControllerV2 implements ReleaseMessageListener {
     }
 
     logger.debug("Notify {} clients for key {}", results.size(), content);
-
+    // 设置 DeferredResult 的结果，从而结束长轮询。
     for (DeferredResultWrapper result : results) {
       result.setResult(configNotification);
     }
