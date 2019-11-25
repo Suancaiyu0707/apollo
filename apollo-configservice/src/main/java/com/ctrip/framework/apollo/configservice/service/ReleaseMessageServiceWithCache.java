@@ -36,15 +36,32 @@ public class ReleaseMessageServiceWithCache implements ReleaseMessageListener, I
       .class);
   private final ReleaseMessageRepository releaseMessageRepository;
   private final BizConfig bizConfig;
-
+  /**
+   * 扫描周期
+   */
   private int scanInterval;
+  /**
+   * 扫描周期单位
+   */
   private TimeUnit scanIntervalTimeUnit;
-
+  /**
+   * 最后扫描到的 ReleaseMessage 的编号
+   */
   private volatile long maxIdScanned;
-
+  /**
+   * ReleaseMessage 缓存
+   *
+   * KEY：`ReleaseMessage.message`
+   * VALUE：对应的最新的 ReleaseMessage 记录
+   */
   private ConcurrentMap<String, ReleaseMessage> releaseMessageCache;
-
+  /**
+   * 是否执行扫描任务
+   */
   private AtomicBoolean doScan;
+  /**
+   * ExecutorService 对象
+   */
   private ExecutorService executorService;
 
   public ReleaseMessageServiceWithCache(
@@ -56,8 +73,11 @@ public class ReleaseMessageServiceWithCache implements ReleaseMessageListener, I
   }
 
   private void initialize() {
+    // 创建缓存对象
     releaseMessageCache = Maps.newConcurrentMap();
+    // 设置 doScan 为 true
     doScan = new AtomicBoolean(true);
+    // 创建 ScheduledExecutorService 对象，大小为 1 。
     executorService = Executors.newSingleThreadExecutor(ApolloThreadFactory
         .create("ReleaseMessageServiceWithCache", true));
   }
@@ -98,37 +118,40 @@ public class ReleaseMessageServiceWithCache implements ReleaseMessageListener, I
 
   @Override
   public void handleMessage(ReleaseMessage message, String channel) {
-    //Could stop once the ReleaseMessageScanner starts to work
+// 关闭增量拉取定时任务的执行
     doScan.set(false);
     logger.info("message received - channel: {}, message: {}", channel, message);
 
     String content = message.getMessage();
     Tracer.logEvent("Apollo.ReleaseMessageService.UpdateCache", String.valueOf(message.getId()));
+    // 仅处理 APOLLO_RELEASE_TOPIC
     if (!Topics.APOLLO_RELEASE_TOPIC.equals(channel) || Strings.isNullOrEmpty(content)) {
       return;
     }
-
+    // 计算 gap
     long gap = message.getId() - maxIdScanned;
+
+    // 若无空缺 gap ，直接合并
     if (gap == 1) {
       mergeReleaseMessage(message);
-    } else if (gap > 1) {
-      //gap found!
+    } else if (gap > 1) {// 如有空缺 gap ，增量拉取
       loadReleaseMessages(maxIdScanned);
     }
   }
 
   @Override
   public void afterPropertiesSet() {
+    // 从 ServerConfig 中，读取任务的周期配置
     populateDataBaseInterval();
-    //block the startup process until load finished
-    //this should happen before ReleaseMessageScanner due to autowire
+    // 初始拉取 ReleaseMessage 到缓存
     loadReleaseMessages(0);
-
+    // 创建定时任务，增量拉取 ReleaseMessage 到缓存，用以处理初始化期间，产生的 ReleaseMessage 遗漏的问题。
     executorService.submit(() -> {
       while (doScan.get() && !Thread.currentThread().isInterrupted()) {
         Transaction transaction = Tracer.newTransaction("Apollo.ReleaseMessageServiceWithCache",
             "scanNewReleaseMessages");
         try {
+          // 增量拉取 ReleaseMessage 到缓存
           loadReleaseMessages(maxIdScanned);
           transaction.setStatus(Transaction.SUCCESS);
         } catch (Throwable ex) {
@@ -146,8 +169,14 @@ public class ReleaseMessageServiceWithCache implements ReleaseMessageListener, I
     });
   }
 
+  /**
+   * 合并到 ReleaseMessage 缓存
+   * @param releaseMessage
+   */
   private synchronized void mergeReleaseMessage(ReleaseMessage releaseMessage) {
+    // 获得对应的 ReleaseMessage 对象
     ReleaseMessage old = releaseMessageCache.get(releaseMessage.getMessage());
+    // 若编号更大，进行更新缓存
     if (old == null || releaseMessage.getId() > old.getId()) {
       releaseMessageCache.put(releaseMessage.getMessage(), releaseMessage);
       maxIdScanned = releaseMessage.getId();
@@ -158,14 +187,18 @@ public class ReleaseMessageServiceWithCache implements ReleaseMessageListener, I
     boolean hasMore = true;
     while (hasMore && !Thread.currentThread().isInterrupted()) {
       //current batch is 500
+      // 获得大于 maxIdScanned 的 500 条 ReleaseMessage 记录，按照 id 升序
       List<ReleaseMessage> releaseMessages = releaseMessageRepository
           .findFirst500ByIdGreaterThanOrderByIdAsc(startId);
       if (CollectionUtils.isEmpty(releaseMessages)) {
         break;
       }
+      // 合并到 ReleaseMessage 缓存
       releaseMessages.forEach(this::mergeReleaseMessage);
+      // 获得新的 maxIdScanned ，取最后一条记录
       int scanned = releaseMessages.size();
       startId = releaseMessages.get(scanned - 1).getId();
+      // 若拉取不足 500 条，说明无新消息了
       hasMore = scanned == 500;
       logger.info("Loaded {} release messages with startId {}", scanned, startId);
     }
