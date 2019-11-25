@@ -115,7 +115,7 @@ public class NotificationControllerV2 implements ReleaseMessageListener {
     /**
      * ApolloConfigNotification：
      *    namespace:
-     *    notificationId:
+     *    notificationId: releaseMessageId，是递增的
      */
     List<ApolloConfigNotification> notifications = null;
     // 解析 notificationsAsString 参数，创建 ApolloConfigNotification 数组。也就说，当有几个 配置发生变化的 Namespace ，返回几个对应的 ApolloConfigNotification 。
