@@ -9,6 +9,12 @@ import java.util.Map;
  * @author Jason Song(song_s@ctrip.com)
  */
 public class ApolloNotificationMessages {
+  /**
+   * 明细 Map
+   *
+   * KEY ：{appId} "+" {clusterName} "+" {namespace} ，例如：100004458+default+application
+   * VALUE ：通知编号
+   */
   private Map<String, Long> details;
 
   public ApolloNotificationMessages() {

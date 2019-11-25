@@ -104,6 +104,13 @@ public class NotificationControllerV2 implements ReleaseMessageListener {
    *
    * 注意：
    *    客户端请求时，只传递 ApolloConfigNotification 的 namespaceName + notificationId ，不传递 messages 。
+   *      notificationId: releaseMessageId，是递增的
+   *
+   * 客户端会向服务端发起请求，并把客户端当前的配置消息的id（可以理解为版本号）传递并注册到服务端，并同服务端中ReleaseMessage表里对应的Namespace的ReleaseMessage的id进行比较，
+   * 如果小于服务端同一个namespace的最大的messaegId，则表示服务端有新的更新，则这个时候，会返回一个ApolloConfigNotification。客户端接收到ApolloConfigNotification后会向
+   * 服务端拉取变更配置的请求。
+   *
+   * 所以当前请求返回一个表示服务端对应的配置是否发生变化的对象。拉取变更是在之后发起的
    */
   @GetMapping
   public DeferredResult<ResponseEntity<List<ApolloConfigNotification>>> pollNotification(

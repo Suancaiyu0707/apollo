@@ -28,6 +28,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * @author Jason Song(song_s@ctrip.com)
+ * 实现 InitializingBean 和 ReleaseMessageListener 接口，缓存 ReleaseMessage 的 Service 实现类。通过将 ReleaseMessage 缓存在内存中，提高查询性能。
  */
 @Service
 public class ReleaseMessageServiceWithCache implements ReleaseMessageListener, InitializingBean {
@@ -117,7 +118,7 @@ public class ReleaseMessageServiceWithCache implements ReleaseMessageListener, I
   }
 
   @Override
-  public void afterPropertiesSet() throws Exception {
+  public void afterPropertiesSet() {
     populateDataBaseInterval();
     //block the startup process until load finished
     //this should happen before ReleaseMessageScanner due to autowire
@@ -176,7 +177,7 @@ public class ReleaseMessageServiceWithCache implements ReleaseMessageListener, I
   }
 
   //only for test use
-  private void reset() throws Exception {
+  private void reset() {
     executorService.shutdownNow();
     initialize();
     afterPropertiesSet();
