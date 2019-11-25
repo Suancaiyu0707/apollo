@@ -114,20 +114,32 @@ public class GrayReleaseRulesHolder implements ReleaseMessageListener, Initializ
       transaction.complete();
     }
   }
-
+  /***
+   *  查询灰度发布记录对应的发布版本id：对应GrayReleaseRule中的releaseId
+   * @param clientAppId 客户端的appId
+   * @param clientIp 客户端ip
+   * @param configAppId apollo上配置的appId
+   * @param configCluster apollo上配置的clusterName
+   * @param configNamespaceName apollo上配置的namespace
+   * @return
+   */
   public Long findReleaseIdFromGrayReleaseRule(String clientAppId, String clientIp, String
       configAppId, String configCluster, String configNamespaceName) {
+    //获得灰度发布版本的缓存key：configAppId+configCluster+configNamespaceName
     String key = assembleGrayReleaseRuleKey(configAppId, configCluster, configNamespaceName);
+    //如果判断里不存在，则直接返回
     if (!grayReleaseRuleCache.containsKey(key)) {
       return null;
     }
     //create a new list to avoid ConcurrentModificationException
+    //如果缓存里存在，则根据key获得灰度的发布记录
     List<GrayReleaseRuleCache> rules = Lists.newArrayList(grayReleaseRuleCache.get(key));
     for (GrayReleaseRuleCache rule : rules) {
-      //check branch status
+      //如果灰度规则状态是活跃状态，则跳过
       if (rule.getBranchStatus() != NamespaceBranchStatus.ACTIVE) {
         continue;
       }
+      //如果规则对应的appId和clientIp都匹配，则返回版本id
       if (rule.matches(clientAppId, clientIp)) {
         return rule.getReleaseId();
       }
@@ -260,6 +272,13 @@ public class GrayReleaseRulesHolder implements ReleaseMessageListener, Initializ
     return TimeUnit.SECONDS;
   }
 
+  /***
+   * 获得灰度发布版本的缓存key：configAppId+configCluster+configNamespaceName
+   * @param configAppId
+   * @param configCluster
+   * @param configNamespaceName
+   * @return
+   */
   private String assembleGrayReleaseRuleKey(String configAppId, String configCluster, String
       configNamespaceName) {
     return STRING_JOINER.join(configAppId, configCluster, configNamespaceName);

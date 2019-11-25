@@ -17,10 +17,21 @@ public abstract class AbstractConfigService implements ConfigService {
   @Autowired
   private GrayReleaseRulesHolder grayReleaseRulesHolder;
 
+  /***
+   *
+   * @param clientAppId 客户端的appId
+   * @param clientIp 客户端ip （因为如果是灰度发布，就要根据ip去匹配）
+   * @param configAppId apollo上配置的appId
+   * @param configClusterName apollo上配置的clusterName
+   * @param configNamespace apollo上配置的namespace
+   * @param dataCenter apollo上配置的数据中心
+   * @param clientMessages 客户端通过监听接收到的变更的消息
+   * @return
+   */
   @Override
   public Release loadConfig(String clientAppId, String clientIp, String configAppId, String configClusterName,
       String configNamespace, String dataCenter, ApolloNotificationMessages clientMessages) {
-    // load from specified cluster fist
+    // 如果不是默认的集群：default
     if (!Objects.equals(ConfigConsts.CLUSTER_NAME_DEFAULT, configClusterName)) {
       Release clusterRelease = findRelease(clientAppId, clientIp, configAppId, configClusterName, configNamespace,
           clientMessages);
@@ -44,28 +55,31 @@ public abstract class AbstractConfigService implements ConfigService {
         clientMessages);
   }
 
-  /**
-   * Find release
-   * 
-   * @param clientAppId the client's app id
-   * @param clientIp the client ip
-   * @param configAppId the requested config's app id
-   * @param configClusterName the requested config's cluster name
-   * @param configNamespace the requested config's namespace name
-   * @param clientMessages the messages received in client side
-   * @return the release
+  /***
+   *  查询发布版本
+   * @param clientAppId 客户端的appId
+   * @param clientIp 客户端ip
+   * @param configAppId apollo上配置的appId
+   * @param configClusterName apollo上配置的clusterName
+   * @param configNamespace apollo上配置的namespace
+   * @param clientMessages 客户端通过监听接收到的变更的消息
+   * @return
+   * 因为对于灰度发布的时候，它只会配置只对部分的ip生效。所以这边要先根据clientIp查询灰度发布记录。如果存在再根据grayRelease表中的ReleaseId查询发布记录Release表。
+   *    如果没有灰度发布记录，则直接查询最新的一条Release记录
    */
   private Release findRelease(String clientAppId, String clientIp, String configAppId, String configClusterName,
       String configNamespace, ApolloNotificationMessages clientMessages) {
+    //先查找灰度发布记录，并返回灰度发布的版本id,映射的是release表的中id
     Long grayReleaseId = grayReleaseRulesHolder.findReleaseIdFromGrayReleaseRule(clientAppId, clientIp, configAppId,
         configClusterName, configNamespace);
 
     Release release = null;
-
+    //如果灰度
     if (grayReleaseId != null) {
+      //根据grayReleaseId从Release表中查询记录
       release = findActiveOne(grayReleaseId, clientMessages);
     }
-
+    //如果release==null，表示没有灰度发布记录，则查询最新的一条Release记录
     if (release == null) {
       release = findLatestActiveRelease(configAppId, configClusterName, configNamespace, clientMessages);
     }

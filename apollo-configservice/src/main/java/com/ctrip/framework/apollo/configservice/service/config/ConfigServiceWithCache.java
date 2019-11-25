@@ -131,16 +131,18 @@ public class ConfigServiceWithCache extends AbstractConfigService {
   @Override
   protected Release findLatestActiveRelease(String appId, String clusterName, String namespaceName,
                                             ApolloNotificationMessages clientMessages) {
+    //根据appId+clusterName+namespaceName 生成一个唯一key
     String key = ReleaseMessageKeyGenerator.generate(appId, clusterName, namespaceName);
 
     Tracer.logEvent(TRACER_EVENT_CACHE_GET, key);
-
+    //从缓存里获取配置记录ConfigCacheEntry
     ConfigCacheEntry cacheEntry = configCache.getUnchecked(key);
 
-    //cache is out-dated
-    if (clientMessages != null && clientMessages.has(key) &&
-        clientMessages.get(key) > cacheEntry.getNotificationId()) {
-      //invalidate the cache and try to load from db again
+    if (clientMessages != null //clientMessages不为空
+            && clientMessages.has(key)
+            &&clientMessages.get(key) > cacheEntry.getNotificationId()//如果收到变更通知的NotificationId比缓存里的还大
+            ) {
+      //缓存里已经失效，所以需要去数据库里获取，并更新缓存
       invalidate(key);
       cacheEntry = configCache.getUnchecked(key);
     }

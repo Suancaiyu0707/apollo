@@ -56,6 +56,12 @@ import java.util.function.Function;
 @RequestMapping("/notifications/v2")
 public class NotificationControllerV2 implements ReleaseMessageListener {
   private static final Logger logger = LoggerFactory.getLogger(NotificationControllerV2.class);
+    /***
+     * key：是被监听的namespace+cluster+namespace
+     * value：是一个DeferredResult的包装对象的列表，当监听的key有返回值的时候，就调用这些DeferredResult进行setResult完成回调
+     *      这里要注意：Multimap是允许key相同的元素。因为有可能多个客户端在监听同一个key
+     *
+     */
   private final Multimap<String, DeferredResultWrapper> deferredResults =
       Multimaps.synchronizedSetMultimap(HashMultimap.create());
   private static final Splitter STRING_SPLITTER =
@@ -81,6 +87,7 @@ public class NotificationControllerV2 implements ReleaseMessageListener {
       final NamespaceUtil namespaceUtil,
       final Gson gson,
       final BizConfig bizConfig) {
+
     largeNotificationBatchExecutorService = Executors.newSingleThreadExecutor(ApolloThreadFactory.create
         ("NotificationControllerV2", true));
     this.watchKeysUtil = watchKeysUtil;
@@ -99,6 +106,14 @@ public class NotificationControllerV2 implements ReleaseMessageListener {
    * @param dataCenter 数据中心
    * @param clientIp 客户端ip
    * @return
+   * 1、从客户端的请求参数notifications解析出当前监听的版本id,因为客户端可能用到多个namespace,所以这里解析出来可能是一个列表：List<ApolloConfigNotification>
+   * 2、为每个客户端拉取请求创建一个DeferredResultWrapper，当客户端没有变更通知时，则利用DeferredResultWrapper，可以挂起客户端请求。
+   * 3、过滤下客户端的传过来的namespace的合法性：
+   *    namespaceName不能为空
+   *    如果同一个请求中的List<ApolloConfigNotification>包含了多个针对同一个Namespace进行监听的ApolloConfigNotification，则只保留ReleaseMessage.id最大的那个即可
+   * 4、
+   *
+   *
    * 客户端请求拉取配置变化的通知，如果没有变化的话，则默认挂起60s
    *    返回所配置的，其中发生变化的 Namespace 对应的 ApolloConfigNotification
    *
@@ -126,7 +141,6 @@ public class NotificationControllerV2 implements ReleaseMessageListener {
      */
     List<ApolloConfigNotification> notifications = null;
     // 解析 notificationsAsString 参数，创建 ApolloConfigNotification 数组。也就说，当有几个 配置发生变化的 Namespace ，返回几个对应的 ApolloConfigNotification 。
-
     try {
       notifications =
           gson.fromJson(notificationsAsString, notificationsTypeReference);
@@ -145,11 +159,14 @@ public class NotificationControllerV2 implements ReleaseMessageListener {
     //    key 为 Namespace 名，
     //    value 为通知编号。
     Map<String, Long> clientSideNotifications = Maps.newHashMap();
-    // 过滤并创建 ApolloConfigNotification Map
-    Map<String, ApolloConfigNotification> filteredNotifications = filterNotifications(appId, notifications);
+    //过滤下客户端的传过来的namespace的合法性：
+    //   namespaceName不能为空
+    //    如果同一个请求中的List<ApolloConfigNotification>包含了多个针对同一个Namespace进行监听的ApolloConfigNotification，则只保留ReleaseMessage.id最大的那个即可
+    //key：namespcae,  value：ApolloConfigNotification
+      Map<String, ApolloConfigNotification> filteredNotifications = filterNotifications(appId, notifications);
     // 循环 ApolloConfigNotification的Map ，初始化上述变量。
     for (Map.Entry<String, ApolloConfigNotification> notificationEntry : filteredNotifications.entrySet()) {
-      String normalizedNamespace = notificationEntry.getKey();//namespace对应的key
+      String normalizedNamespace = notificationEntry.getKey();//namespacename
       ApolloConfigNotification notification = notificationEntry.getValue();
       // 添加到 `namespaces` 中。
       namespaces.add(normalizedNamespace);
@@ -160,13 +177,13 @@ public class NotificationControllerV2 implements ReleaseMessageListener {
         deferredResultWrapper.recordNamespaceNameNormalizedResult(notification.getNamespaceName(), normalizedNamespace);
       }
     }
-
+    //客户端监听的namespaces不能为空
     if (CollectionUtils.isEmpty(namespaces)) {
       throw new BadRequestException("Invalid format of notifications: " + notificationsAsString);
     }
     // 组装 Watch Key Multimap
-    //appId+clusterid+namespace
-    //appId+datacenter+namespace
+    //key：namespace
+    //value：appId+clusterid+namespace和appId+datacenter+namespace
     Multimap<String, String> watchedKeysMap =
         watchKeysUtil.assembleAllWatchKeys(appId, cluster, namespaces, dataCenter);
     // 生成 Watch Key 集合
@@ -228,6 +245,8 @@ public class NotificationControllerV2 implements ReleaseMessageListener {
    * @param appId
    * @param notifications
    * @return
+   *        key：namespace
+   *        value：ApolloConfigNotification
    */
   private Map<String, ApolloConfigNotification> filterNotifications(String appId,
                                                                     List<ApolloConfigNotification> notifications) {
@@ -315,13 +334,21 @@ public class NotificationControllerV2 implements ReleaseMessageListener {
    * @param message
    * @param channel
    *
+   * 1、从ReleaseMessage发布消息中获得content=appId+clusterName+namespaceName
+   * 2、判断是否有客户端监听对应的 content，没有则直接返回
+   * 3、如果存在客户端监听对应的content，这里会返回一个DeferredResult列表：因为Multimap是允许key相同的元素，因为有可能多个客户端在监听同一个key。
+   * 4、创建 一个用用于通知对应的DeferredResult的 ApolloConfigNotification 对象，并在ApolloConfigNotification存放最新更新的 releaseId和content
+   *    (这样客户端收到通知后，就要拿着releaseId和content查找最新的Release发布信息进行更新)
+   * 5、循环遍历匹配的DeferredResult，并setResults，这样客户端就会收到响应返回。
+   *    若需要通知的客户端过多，使用 ExecutorService 异步通知，避免“惊群效应”
    * 假设一个公共 Namespace 有10W 台机器使用，如果该公共 Namespace 发布时直接下发配置更新消息的话，就会导致这 10W 台机器一下子都来请求配置，
    *  这动静就有点大了，而且对 Config Service 的压力也会比较大。
    */
   @Override
   public void handleMessage(ReleaseMessage message, String channel) {
     logger.info("message received - channel: {}, message: {}", channel, message);
-    //获得消息
+    //获得消息内容，是一个字符串：appId+clusterName+namespaceName,
+      // eg:SampleApp+cluster1+application
     String content = message.getMessage();
     Tracer.logEvent("Apollo.LongPoll.Messages", content);
     // 仅处理 APOLLO_RELEASE_TOPIC
@@ -330,20 +357,19 @@ public class NotificationControllerV2 implements ReleaseMessageListener {
     }
     //从消息中分解出namespace
     String changedNamespace = retrieveNamespaceFromReleaseMessage.apply(content);
-
+    //namespace不能为空
     if (Strings.isNullOrEmpty(changedNamespace)) {
       logger.error("message format invalid - {}", content);
       return;
     }
-    // 判断`deferredResults` 是否存在对应的 Watch Key。也就是如果该监听器不监听这个namespace，则返回
+    // 判断`deferredResults` 是否存在对应的 Watch Key。也就是如果并未存在客户端监听这个namespace，则返回
     if (!deferredResults.containsKey(content)) {
       return;
     }
-
-    //create a new list to avoid ConcurrentModificationException
     // 如果`deferredResults` 存在对应的 Watch Key，创建 DeferredResultWrapper 数组，避免并发问题。
+     // 因为Multimap是允许key相同的元素，因为有可能多个客户端在监听同一个key。
     List<DeferredResultWrapper> results = Lists.newArrayList(deferredResults.get(content));
-    // 创建 ApolloConfigNotification 对象
+    // 创建 一个用户通知对应的DeferredResult的 ApolloConfigNotification 对象
     ApolloConfigNotification configNotification = new ApolloConfigNotification(changedNamespace, message.getId());
     configNotification.addMessage(content, message.getId());
 

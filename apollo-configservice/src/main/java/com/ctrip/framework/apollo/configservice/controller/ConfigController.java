@@ -70,40 +70,50 @@ public class ConfigController {
                                   @RequestParam(value = "messages", required = false) String messagesAsString,
                                   HttpServletRequest request, HttpServletResponse response) throws IOException {
     String originalNamespace = namespace;
-    //strip out .properties suffix
+    //移除命名空间后缀:.properties
     namespace = namespaceUtil.filterNamespaceName(namespace);
-    //fix the character case issue, such as FX.apollo <-> fx.apollo
+    //根据appid、namespace 从本地缓存中获取 AppNamespace，如果本地缓存里没有的话，则从数据库中获取
     namespace = namespaceUtil.normalizeNamespace(appId, namespace);
-
+    // 若 clientIp 未提交，从 Request 中获取。ip是用来查灰度发布情况
     if (Strings.isNullOrEmpty(clientIp)) {
       clientIp = tryToGetClientIp(request);
     }
-
+    /**
+     * 明细 Map
+     *
+     * KEY ：{appId} "+" {clusterName} "+" {namespace} ，例如：100004458+default+application
+     * VALUE ：通知编号
+     */
+    // 解析 messagesAsString 参数，创建 ApolloNotificationMessages 对象。
     ApolloNotificationMessages clientMessages = transformMessages(messagesAsString);
 
     List<Release> releases = Lists.newLinkedList();
 
     String appClusterNameLoaded = clusterName;
+    //如果appId不是ApolloNoAppIdPlaceHolder
     if (!ConfigConsts.NO_APPID_PLACEHOLDER.equalsIgnoreCase(appId)) {
+      //查询对应的最新的发布记录
       Release currentAppRelease = configService.loadConfig(appId, clientIp, appId, clusterName, namespace,
           dataCenter, clientMessages);
-
+      //如果存在新的发布记录
       if (currentAppRelease != null) {
         releases.add(currentAppRelease);
         //we have cluster search process, so the cluster name might be overridden
+        // 获得 Release 对应的 Cluster 名字
         appClusterNameLoaded = currentAppRelease.getClusterName();
       }
     }
 
-    //if namespace does not belong to this appId, should check if there is a public configuration
+    // 若namespace不属于appId下面的，那么Namespace必然为关联类型，则获取关联的 Namespace 的 Release 对象
     if (!namespaceBelongsToAppId(appId, namespace)) {
+      // 获得公共的 Release 对象
       Release publicRelease = this.findPublicConfig(appId, clientIp, clusterName, namespace,
           dataCenter, clientMessages);
       if (!Objects.isNull(publicRelease)) {
         releases.add(publicRelease);
       }
     }
-
+    // 若获得不到 Release ，返回状态码为 404 的响应
     if (releases.isEmpty()) {
       response.sendError(HttpServletResponse.SC_NOT_FOUND,
           String.format(
@@ -113,7 +123,7 @@ public class ConfigController {
           assembleKey(appId, clusterName, originalNamespace, dataCenter));
       return null;
     }
-
+    // 记录 InstanceConfig
     auditReleases(appId, clusterName, dataCenter, clientIp, releases);
 
     String mergedReleaseKey = releases.stream().map(Release::getReleaseKey)
@@ -205,6 +215,11 @@ public class ConfigController {
     }
   }
 
+  /***
+   * 尝试获取客户端的ip
+   * @param request
+   * @return
+   */
   private String tryToGetClientIp(HttpServletRequest request) {
     String forwardedFor = request.getHeader("X-FORWARDED-FOR");
     if (!Strings.isNullOrEmpty(forwardedFor)) {
