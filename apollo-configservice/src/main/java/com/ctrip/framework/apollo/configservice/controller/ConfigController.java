@@ -149,7 +149,7 @@ public class ConfigController {
 
     String mergedReleaseKey = releases.stream().map(Release::getReleaseKey)
             .collect(Collectors.joining(ConfigConsts.CLUSTER_NAMESPACE_SEPARATOR));
-
+    // 对比 Client 的合并 Release Key 。若相等，说明没有改变，返回状态码为 302 的响应
     if (mergedReleaseKey.equals(clientSideReleaseKey)) {
       // Client side configuration is the same with server side, return 304
       response.setStatus(HttpServletResponse.SC_NOT_MODIFIED);
@@ -211,6 +211,7 @@ public class ConfigController {
    */
   Map<String, String> mergeReleaseConfigurations(List<Release> releases) {
     Map<String, String> result = Maps.newHashMap();
+    // 反转 Release 数组，循环添加到 Map 中。
     for (Release release : Lists.reverse(releases)) {
       result.putAll(gson.fromJson(release.getConfigurations(), configurationTypeReference));
     }
