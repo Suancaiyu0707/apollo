@@ -61,6 +61,24 @@ public class ConfigController {
     this.gson = gson;
   }
 
+  /***
+   *
+   * @param appId appId
+   * @param clusterName 集群名称
+   * @param namespace 命名空间
+   * @param dataCenter 数据中心(通常为空)
+   * @param clientSideReleaseKey 客户端的releaseKey
+   * @param clientIp 客户端Ip（用于查找灰度配置）
+   * @param messagesAsString 服务端之前通知客户端变更的namespace的最新的releaseMessage.id
+   * @param request
+   * @param response
+   * @return
+   * @throws IOException
+   * 1、根据namespace和appId查找namespaceName（这一步会根据namespace查找公共的namespace ）
+   * 2、如果客户端没有传递ip的话，则要自己从request里获取clientIp(用于查找灰度发布的版本)
+   * 3、解析 messagesAsString 参数，获得需要拉取的版本号
+   * 4、
+   */
   @GetMapping(value = "/{appId}/{clusterName}/{namespace:.+}")
   public ApolloConfig queryConfig(@PathVariable String appId, @PathVariable String clusterName,
                                   @PathVariable String namespace,

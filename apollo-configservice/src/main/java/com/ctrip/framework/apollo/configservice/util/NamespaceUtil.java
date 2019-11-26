@@ -32,18 +32,18 @@ public class NamespaceUtil {
   }
 
   /**
-   *
+   *  根据appId和namespaceName查找 namespaceName
    * @param appId
    * @param namespaceName
    * @return
+   * 1、根据appId+namespaceName查找缓存，缓存有的话直接返回，没有的话，则进入第2步
+   * 2、根据namespaceName查找public的namespace缓存，如果有的话直接返回，没有的话则直接返回入参namespaceName
    */
   public String normalizeNamespace(String appId, String namespaceName) {
-    //根据appId、namespaceName查询appNamespace表记录
     AppNamespace appNamespace = appNamespaceServiceWithCache.findByAppIdAndNamespace(appId, namespaceName);
     if (appNamespace != null) {
       return appNamespace.getName();
     }
-    //根据namespaceName查询缓存
     appNamespace = appNamespaceServiceWithCache.findPublicNamespaceByName(namespaceName);
     if (appNamespace != null) {
       return appNamespace.getName();
