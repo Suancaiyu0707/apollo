@@ -158,7 +158,7 @@ public class NotificationControllerV2 implements ReleaseMessageListener {
     Set<String> namespaces = Sets.newHashSet();
     // 创建客户端的通知 Map 。
     //    key 为 Namespace 名，
-    //    value 为通知编号。
+    //    value 为通知编号 releaseMessage.id。
     Map<String, Long> clientSideNotifications = Maps.newHashMap();
     //过滤下客户端的传过来的namespace的合法性：
     //   namespaceName不能为空
@@ -205,16 +205,15 @@ public class NotificationControllerV2 implements ReleaseMessageListener {
     // 这是不可接受的，因为我们正在做长轮询——意味着 db 连接将被保留很长时间。
     // 实际上，下面的过程，我们已经不需要 db 连接，因此进行关闭。
     entityManagerUtil.closeEntityManager();
-    // 获得新的 ApolloConfigNotification 通知数组
+    // 获得新的 ApolloConfigNotification 通知数组(如果客户端传过来的监听的releaseMessage.id小于对应的namespace当前最新的发布的releaseMessage.id，则添加到这个列表里)
     List<ApolloConfigNotification> newNotifications =
         getApolloConfigNotifications(namespaces, clientSideNotifications, watchedKeysMap,
             latestReleaseMessages);
-    // 若有新的通知，直接设置结果。
-    if (!CollectionUtils.isEmpty(newNotifications)) {
+    if (!CollectionUtils.isEmpty(newNotifications)) {//表示客户端监听的namespace有新发布的版本，则更新到对应的deferredResultWrapper，并返回给客户端
       //若有新的通知，调用 setResult方法，直接设置 DeferredResult 的结果，从而结束长轮询。
       deferredResultWrapper.setResult(newNotifications);
     } else {//若无新的通知
-      //注册到 deferredResults 中，等到有配置变更或超时
+      //注册到 deferredResults 中，等到有配置变更或超时(默认60s)
       deferredResultWrapper
           .onTimeout(() -> logWatchedKeys(watchedKeys, "Apollo.LongPoll.TimeOutKeys"));//注册超时事件
       //注册结束事件。在其内部，
@@ -283,18 +282,24 @@ public class NotificationControllerV2 implements ReleaseMessageListener {
   /**
    *
    * @param namespaces
-   * @param clientSideNotifications
-   * @param watchedKeysMap
-   * @param latestReleaseMessages
+   * @param clientSideNotifications 客户端传过来的需要监听的releaseMessage.id
+   *                                 key：namespace
+   *                                value:  nitiificationId(或者说releaseMessage.id)
+   * @param watchedKeysMap   监听的namespace和watchKey之间关系
+   *                            key：namespace
+   *                            value：appId+clusterId+namespace
+   * @param latestReleaseMessages watchKey列表对应的最新发布的版本消息
+   *
    * @return
    */
   private List<ApolloConfigNotification> getApolloConfigNotifications(Set<String> namespaces,
                                                                       Map<String, Long> clientSideNotifications,
                                                                       Multimap<String, String> watchedKeysMap,
                                                                       List<ReleaseMessage> latestReleaseMessages) {
-    // 创建 ApolloConfigNotification 数组
+    // 初始化 ApolloConfigNotification 数组
     List<ApolloConfigNotification> newNotifications = Lists.newArrayList();
-    if (!CollectionUtils.isEmpty(latestReleaseMessages)) {
+
+    if (!CollectionUtils.isEmpty(latestReleaseMessages)) {//如果这些watchKey最难有发版记录
       //创建最新通知的 Map 。其中 Key 为 Watch Key 。
       Map<String, Long> latestNotifications = Maps.newHashMap();
       for (ReleaseMessage releaseMessage : latestReleaseMessages) {
@@ -302,6 +307,7 @@ public class NotificationControllerV2 implements ReleaseMessageListener {
       }
       // 循环 Namespace 的名字的集合，判断是否有配置更新，比较客户端的通知编号和服务的最大通知编号，判断对应的namespace是否有变更
       for (String namespace : namespaces) {
+        //获得客户端监听的namespace对应的releaseMessage.id
         long clientSideId = clientSideNotifications.get(namespace);
         long latestId = ConfigConsts.NOTIFICATION_ID_PLACEHOLDER;
         // 获得 Namespace 对应的 Watch Key 集合
