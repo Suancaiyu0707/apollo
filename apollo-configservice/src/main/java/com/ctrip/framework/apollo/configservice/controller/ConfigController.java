@@ -225,6 +225,14 @@ public class ConfigController {
     return keyParts.stream().collect(Collectors.joining(ConfigConsts.CLUSTER_NAMESPACE_SEPARATOR));
   }
 
+  /**
+   * 记录日志
+   * @param appId
+   * @param cluster
+   * @param dataCenter
+   * @param clientIp
+   * @param releases
+   */
   private void auditReleases(String appId, String cluster, String dataCenter, String clientIp,
                              List<Release> releases) {
     if (Strings.isNullOrEmpty(clientIp)) {
@@ -251,6 +259,11 @@ public class ConfigController {
     return request.getRemoteAddr();
   }
 
+  /***
+   * 将json串转成列表对象
+   * @param messagesAsString
+   * @return
+   */
   ApolloNotificationMessages transformMessages(String messagesAsString) {
     ApolloNotificationMessages notificationMessages = null;
     if (!Strings.isNullOrEmpty(messagesAsString)) {
