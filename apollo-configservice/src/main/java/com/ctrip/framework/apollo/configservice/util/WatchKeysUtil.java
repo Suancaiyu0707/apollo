@@ -50,19 +50,26 @@ public class WatchKeysUtil {
    * @param namespaces namespace集合(一个客户端可能使用了多个namespace)
    * @param dataCenter 数据中心
    * @return
+   * 1、获取监听的watchKey集合：{namespace,[appid+clustername+ namespace,appid+datacenter+ namespace]}
    */
   public Multimap<String, String> assembleAllWatchKeys(String appId, String clusterName,
                                                        Set<String> namespaces,
                                                        String dataCenter) {
+    //获取监听的watchKey集合：{namespace,[appid+clustername+ namespace,appid+datacenter+ namespace]}
     Multimap<String, String> watchedKeysMap =
         assembleWatchKeys(appId, clusterName, namespaces, dataCenter);
 
     //Every app has an 'application' namespace
-    if (!(namespaces.size() == 1 && namespaces.contains(ConfigConsts.NAMESPACE_APPLICATION))) {
+    if (!(
+            namespaces.size() == 1
+            && namespaces.contains(ConfigConsts.NAMESPACE_APPLICATION)//如果不只包含application的namespace，也就是除了application还有其它的
+            )) {//校验namespace是否属于appId下面
+      //根据appId和namespaces获取属于 appId的namespace列表
       Set<String> namespacesBelongToAppId = namespacesBelongToAppId(appId, namespaces);
+      //获得public类型的namespace(不属于namespacesBelongToAppId下面的)
       Set<String> publicNamespaces = Sets.difference(namespaces, namespacesBelongToAppId);
 
-      //Listen on more namespaces if it's a public namespace
+      //如果存在public的Namespaces，则监听这些公共的namespace
       if (!publicNamespaces.isEmpty()) {
         watchedKeysMap
             .putAll(findPublicConfigWatchKeys(appId, clusterName, publicNamespaces, dataCenter));
@@ -72,11 +79,23 @@ public class WatchKeysUtil {
     return watchedKeysMap;
   }
 
+  /**
+   *
+   * @param applicationId
+   * @param clusterName
+   * @param namespaces
+   * @param dataCenter
+   * @return
+   * 查找appId下的公共的namespace
+   * 1、根据namespaces检索出公共的namespace列表
+   * 2、从1中查找appid=applicationId的 namespace列表
+   */
   private Multimap<String, String> findPublicConfigWatchKeys(String applicationId,
                                                              String clusterName,
                                                              Set<String> namespaces,
                                                              String dataCenter) {
     Multimap<String, String> watchedKeysMap = HashMultimap.create();
+    //根据namespaces检索出公共的namespace列表
     List<AppNamespace> appNamespaces = appNamespaceService.findPublicNamespacesByNames(namespaces);
 
     for (AppNamespace appNamespace : appNamespaces) {
@@ -94,6 +113,14 @@ public class WatchKeysUtil {
     return watchedKeysMap;
   }
 
+  /**
+   * 拼接watchkey
+   * @param appId appid
+   * @param cluster 集群名称
+   * @param namespace 命名空间
+   * @return
+   * 返回 appId+cluster+namespace
+   */
   private String assembleKey(String appId, String cluster, String namespace) {
     return STRING_JOINER.join(appId, cluster, namespace);
   }
@@ -118,11 +145,13 @@ public class WatchKeysUtil {
 
     //监听非默认default的集群的变化
     if (!Objects.equals(ConfigConsts.CLUSTER_NAME_DEFAULT, clusterName)) {
+      //添加 appId+cluster+namespace
       watchedKeys.add(assembleKey(appId, clusterName, namespace));
     }
 
     //监听数据中心的消息的变化
     if (!Strings.isNullOrEmpty(dataCenter) && !Objects.equals(dataCenter, clusterName)) {
+      //添加 appId+dataCenter+namespace
       watchedKeys.add(assembleKey(appId, dataCenter, namespace));
     }
 
@@ -139,6 +168,9 @@ public class WatchKeysUtil {
    * @param namespaces namespace集合(一个客户端可能使用了多个namespace)
    * @param dataCenter 数据中心
    * @return
+   * 1、遍历所有的 namespace
+   * 2、根据 根据namespace和datacenter，维护监听的key
+   *    {namespace,[appid+clustername+ namespace,appid+datacenter+ namespace]}
    */
   private Multimap<String, String> assembleWatchKeys(String appId, String clusterName,
                                                      Set<String> namespaces,
@@ -147,13 +179,24 @@ public class WatchKeysUtil {
     //遍历namespace，
     for (String namespace : namespaces) {
       watchedKeysMap
-          .putAll(namespace, assembleWatchKeys(appId, clusterName, namespace, dataCenter));
+          .putAll(namespace,
+                  assembleWatchKeys(appId, clusterName, namespace, dataCenter)//返回set:[appid+clustername+ namespace,appid+datacenter+ namespace]
+          );
     }
 
     return watchedKeysMap;
   }
 
+  /***
+   * 遍历namespaces，剔除不属于appId下的namespace
+   * @param appId
+   * @param namespaces
+   * @return
+   * 1、如果appid=ApolloNoAppIdPlaceHolder,返回空
+   * 2、根据appId和namespaces获取属于 appId的AppNamespace列表的namespace
+   */
   private Set<String> namespacesBelongToAppId(String appId, Set<String> namespaces) {
+    //如果appid=
     if (ConfigConsts.NO_APPID_PLACEHOLDER.equalsIgnoreCase(appId)) {
       return Collections.emptySet();
     }
