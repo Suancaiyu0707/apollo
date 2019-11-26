@@ -77,7 +77,10 @@ public class ConfigController {
    * 1、根据namespace和appId查找namespaceName（这一步会根据namespace查找公共的namespace ）
    * 2、如果客户端没有传递ip的话，则要自己从request里获取clientIp(用于查找灰度发布的版本)
    * 3、解析 messagesAsString 参数，获得需要拉取的版本号
-   * 4、
+   * 4、根据clientMessages查询对应的发布版本记录
+   * 5、检查namespace是否属于appId下的，如果不是的话，则应该是一个关联的namespace，则需要去public里查找
+   * 6、如果上面都找不到的话，则返回404
+   * 7、将查找到的发布版本拼接成ApolloConfig返回给客户端
    */
   @GetMapping(value = "/{appId}/{clusterName}/{namespace:.+}")
   public ApolloConfig queryConfig(@PathVariable String appId, @PathVariable String clusterName,
@@ -110,7 +113,7 @@ public class ConfigController {
     String appClusterNameLoaded = clusterName;
     //如果appId不是ApolloNoAppIdPlaceHolder
     if (!ConfigConsts.NO_APPID_PLACEHOLDER.equalsIgnoreCase(appId)) {
-      //查询对应的最新的发布记录
+      //根据clientMessages查询对应的最新的发布记录
       Release currentAppRelease = configService.loadConfig(appId, clientIp, appId, clusterName, namespace,
           dataCenter, clientMessages);
       //如果存在新的发布记录
@@ -184,6 +187,8 @@ public class ConfigController {
    * @param clientAppId the application which uses public config
    * @param namespace   the namespace
    * @param dataCenter  the datacenter
+   *  1、根据namespace查询公共的 namespace
+   *  2、从公共的namespace中提取出publicConfigAppId，然后查询对应的Release
    */
   private Release findPublicConfig(String clientAppId, String clientIp, String clusterName,
                                    String namespace, String dataCenter, ApolloNotificationMessages clientMessages) {

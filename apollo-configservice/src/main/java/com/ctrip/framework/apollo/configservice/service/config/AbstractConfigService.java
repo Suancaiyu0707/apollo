@@ -18,7 +18,7 @@ public abstract class AbstractConfigService implements ConfigService {
   private GrayReleaseRulesHolder grayReleaseRulesHolder;
 
   /***
-   *
+   *  根据clientMessages查询对应的发布版本记录
    * @param clientAppId 客户端的appId
    * @param clientIp 客户端ip （因为如果是灰度发布，就要根据ip去匹配）
    * @param configAppId apollo上配置的appId
