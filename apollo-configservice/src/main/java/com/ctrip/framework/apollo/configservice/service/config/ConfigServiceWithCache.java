@@ -36,6 +36,7 @@ import javax.annotation.PostConstruct;
  */
 public class ConfigServiceWithCache extends AbstractConfigService {
   private static final Logger logger = LoggerFactory.getLogger(ConfigServiceWithCache.class);
+  //默认缓存时间，60分钟
   private static final long DEFAULT_EXPIRED_AFTER_ACCESS_IN_MINUTES = 60;//1 hour
   private static final String TRACER_EVENT_CACHE_INVALIDATE = "ConfigCache.Invalidate";
   private static final String TRACER_EVENT_CACHE_LOAD = "ConfigCache.LoadFromDB";
@@ -61,10 +62,14 @@ public class ConfigServiceWithCache extends AbstractConfigService {
     nullConfigCacheEntry = new ConfigCacheEntry(ConfigConsts.NOTIFICATION_ID_PLACEHOLDER, null);
   }
 
+  /***
+   * 通过spring调用，对象创建完后调用initialize方法
+   */
   @PostConstruct
   void initialize() {
+    //构建一个guava缓存的CacheBuilder
     configCache = CacheBuilder.newBuilder()
-        .expireAfterAccess(DEFAULT_EXPIRED_AFTER_ACCESS_IN_MINUTES, TimeUnit.MINUTES)
+        .expireAfterAccess(DEFAULT_EXPIRED_AFTER_ACCESS_IN_MINUTES, TimeUnit.MINUTES)//设置缓存失效时间60分钟
         .build(new CacheLoader<String, ConfigCacheEntry>() {
           @Override
           public ConfigCacheEntry load(String key) throws Exception {
@@ -77,20 +82,22 @@ public class ConfigServiceWithCache extends AbstractConfigService {
 
             Transaction transaction = Tracer.newTransaction(TRACER_EVENT_CACHE_LOAD, key);
             try {
+              //根据key查询最新的ReleaseMessage
               ReleaseMessage latestReleaseMessage = releaseMessageService.findLatestReleaseMessageForMessages(Lists
                   .newArrayList(key));
+              //获得最新的，并且有效的 Release 对象
               Release latestRelease = releaseService.findLatestActiveRelease(namespaceInfo.get(0), namespaceInfo.get(1),
                   namespaceInfo.get(2));
 
               transaction.setStatus(Transaction.SUCCESS);
-
+              //获得通知编号
               long notificationId = latestReleaseMessage == null ? ConfigConsts.NOTIFICATION_ID_PLACEHOLDER : latestReleaseMessage
                   .getId();
-
+              // 若 latestReleaseMessage 和 latestRelease 都为空，返回 nullConfigCacheEntry
               if (notificationId == ConfigConsts.NOTIFICATION_ID_PLACEHOLDER && latestRelease == null) {
                 return nullConfigCacheEntry;
               }
-
+              // 创建 ConfigCacheEntry 对象
               return new ConfigCacheEntry(notificationId, latestRelease);
             } catch (Throwable ex) {
               transaction.setStatus(ex);
@@ -151,6 +158,7 @@ public class ConfigServiceWithCache extends AbstractConfigService {
   }
 
   private void invalidate(String key) {
+    // 清空对应的缓存
     configCache.invalidate(key);
     Tracer.logEvent(TRACER_EVENT_CACHE_INVALIDATE, key);
   }
@@ -158,13 +166,15 @@ public class ConfigServiceWithCache extends AbstractConfigService {
   @Override
   public void handleMessage(ReleaseMessage message, String channel) {
     logger.info("message received - channel: {}, message: {}", channel, message);
+    //仅处理APOLLO_RELEASE_TOPIC
     if (!Topics.APOLLO_RELEASE_TOPIC.equals(channel) || Strings.isNullOrEmpty(message.getMessage())) {
       return;
     }
 
     try {
+      // 清空对应的缓存
       invalidate(message.getMessage());
-
+      // 预热缓存，读取 ConfigCacheEntry 对象，重新从 DB 中加载。
       //warm up the cache
       configCache.getUnchecked(message.getMessage());
     } catch (Throwable ex) {
@@ -172,8 +182,17 @@ public class ConfigServiceWithCache extends AbstractConfigService {
     }
   }
 
+  /**
+   * 配置缓存 Entry
+   */
   private static class ConfigCacheEntry {
+    /**
+     * 通知编号
+     */
     private final long notificationId;
+    /**
+     * Release 对象
+     */
     private final Release release;
 
     public ConfigCacheEntry(long notificationId, Release release) {

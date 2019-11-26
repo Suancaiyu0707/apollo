@@ -33,9 +33,11 @@ public class ConfigServiceAutoConfiguration {
 
   @Bean
   public ConfigService configService() {
+    //如果配置了 config-service.cache.enabled=true，则返回ConfigServiceWithCache
     if (bizConfig.isConfigServiceCacheEnabled()) {
       return new ConfigServiceWithCache();
     }
+    //不开启缓存，使用 DefaultConfigService
     return new DefaultConfigService();
   }
 

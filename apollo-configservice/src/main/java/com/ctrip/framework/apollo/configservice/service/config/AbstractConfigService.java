@@ -31,7 +31,7 @@ public abstract class AbstractConfigService implements ConfigService {
    *    如果不是默认的集群：先查询灰度的发布记录(灰度的发布记录要根据clientIp进行过滤，因为灰度是针对部分ip进行发布)。
    *        如果存在灰度发布记录，则直接返回灰度发布版本。
    *        如果不存在灰度发布记录，则查询正式版本最新的一条发布记录。
-   * 2、入根据集群名称和clientMessages查询不到最新的发布版本记录，则根据dataCenter和clientMessages查询最新的发布版本。
+   * 2、根据集群名称和clientMessages查询不到最新的发布版本记录，则根据dataCenter和clientMessages查询最新的发布版本。
    *        如果存在灰度发布记录，则直接返回灰度发布版本。
    *        如果不存在灰度发布记录，则查询正式版本最新的一条发布记录。
    * 3、根据默认的集群名default和clientMessages查询发布正式发布版本记录

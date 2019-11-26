@@ -10,6 +10,8 @@ import com.ctrip.framework.apollo.core.dto.ApolloNotificationMessages;
 public interface ConfigService extends ReleaseMessageListener {
 
   /**
+   * 读取指定 Namespace 的最新的 Release 对象
+   *
    * Load config
    *
    * @param clientAppId the client's app id
@@ -22,5 +24,6 @@ public interface ConfigService extends ReleaseMessageListener {
    * @return the Release
    */
   Release loadConfig(String clientAppId, String clientIp, String configAppId, String
-      configClusterName, String configNamespace, String dataCenter, ApolloNotificationMessages clientMessages);
+      configClusterName, String configNamespace, String dataCenter,
+                     ApolloNotificationMessages clientMessages);
 }
