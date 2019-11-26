@@ -100,6 +100,11 @@ public class ReleaseMessageServiceWithCache implements ReleaseMessageListener, I
     return result;
   }
 
+  /**
+   * 超着最新的发布版本记录
+   * @param messages
+   * @return
+   */
   public List<ReleaseMessage> findLatestReleaseMessagesGroupByMessages(Set<String> messages) {
     if (CollectionUtils.isEmpty(messages)) {
       return Collections.emptyList();

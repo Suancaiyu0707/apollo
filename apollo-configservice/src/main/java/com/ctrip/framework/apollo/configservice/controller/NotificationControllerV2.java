@@ -112,6 +112,7 @@ public class NotificationControllerV2 implements ReleaseMessageListener {
    *    namespaceName不能为空
    *    如果同一个请求中的List<ApolloConfigNotification>包含了多个针对同一个Namespace进行监听的ApolloConfigNotification，则只保留ReleaseMessage.id最大的那个即可
    * 4、拼接map，key：监听的namespace，value为watch_key的集合(appId+clusterid+namespace和appId+datacenter+namespace)
+   * 5、根据这些watch_key查找它们对应的最新的发布版本releaseMessage表的记录
    *
    *
    * 客户端请求拉取配置变化的通知，如果没有变化的话，则默认挂起60s
