@@ -15,11 +15,16 @@ import com.google.common.collect.Lists;
  */
 public abstract class AbstractConfigRepository implements ConfigRepository {
   private static final Logger logger = LoggerFactory.getLogger(AbstractConfigRepository.class);
+  //RepositoryChangeListener 数组
   private List<RepositoryChangeListener> m_listeners = Lists.newCopyOnWriteArrayList();
 
+  /***
+   * 尝试同步
+   * @return
+   */
   protected boolean trySync() {
     try {
-      sync();
+      sync();// 同步
       return true;
     } catch (Throwable ex) {
       Tracer.logEvent("ApolloConfigException", ExceptionUtil.getDetailMessage(ex));
@@ -30,6 +35,9 @@ public abstract class AbstractConfigRepository implements ConfigRepository {
     return false;
   }
 
+  /**
+   * 同步配置
+   */
   protected abstract void sync();
 
   @Override
@@ -44,9 +52,15 @@ public abstract class AbstractConfigRepository implements ConfigRepository {
     m_listeners.remove(listener);
   }
 
+  /**
+   * namespace的properties发生变化了，触发监听器们
+   * @param namespace 目标 namespace
+   * @param newProperties 变化后新的properties
+   */
   protected void fireRepositoryChange(String namespace, Properties newProperties) {
     for (RepositoryChangeListener listener : m_listeners) {
       try {
+        //处理监听的namespace下的properties的变化
         listener.onRepositoryChange(namespace, newProperties);
       } catch (Throwable ex) {
         Tracer.logError(ex);

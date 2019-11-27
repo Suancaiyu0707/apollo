@@ -91,9 +91,16 @@ public class RemoteConfigLongPollService {
     m_longPollRateLimiter = RateLimiter.create(m_configUtil.getLongPollQPS());
   }
 
+  /***
+   *
+   * @param namespace
+   * @param remoteConfigRepository
+   * @return
+   */
   public boolean submit(String namespace, RemoteConfigRepository remoteConfigRepository) {
     boolean added = m_longPollNamespaces.put(namespace, remoteConfigRepository);
     m_notifications.putIfAbsent(namespace, INIT_NOTIFICATION_ID);
+    //如果长轮询还没开始，则启动长轮询
     if (!m_longPollStarted.get()) {
       startLongPolling();
     }

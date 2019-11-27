@@ -140,6 +140,9 @@ public class ConfigServiceLocator {
         m_configUtil.getRefreshIntervalTimeUnit());
   }
 
+  /***
+   * 更新 config services列表
+   */
   private synchronized void updateConfigServices() {
     String url = assembleMetaServiceUrl();
 
