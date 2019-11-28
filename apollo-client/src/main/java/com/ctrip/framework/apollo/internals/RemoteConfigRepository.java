@@ -250,8 +250,8 @@ public class RemoteConfigRepository extends AbstractConfigRepository {
       List<ServiceDTO> randomConfigServices = Lists.newLinkedList(configServices);
       Collections.shuffle(randomConfigServices);
       //Access the server which notifies the client first
-      // 优先访问通知配置变更的 Config Service 的地址。并且，获取到时，需要置空，避免重复优先访问。
-      if (m_longPollServiceDto.get() != null) {
+      // 优先考虑访问通知客户端有点配置变化的config service
+      if (m_longPollServiceDto.get() != null) {//这时候是因为之前通过长轮询接收到配置变更的通知，但是还没把配置拉取过来，所以这次考虑优先去拉取这个变更
         randomConfigServices.add(0, m_longPollServiceDto.getAndSet(null));
       }
       // 循环所有的 Config Service 的地址,这边看着是轮询，其实并不是
