@@ -219,30 +219,35 @@ public class RemoteConfigLongPollService {
           List<ServiceDTO> configServices = getConfigServices();
           lastServiceDto = configServices.get(random.nextInt(configServices.size()));
         }
-
+      //获取配置变更通知 /notifications/v2 接口的 URL
         url =
             assembleLongPollRefreshUrl(lastServiceDto.getHomepageUrl(), appId, cluster, dataCenter,
                 m_notifications);
 
         logger.debug("Long polling from {}", url);
         HttpRequest request = new HttpRequest(url);
-        //默认超时时间90s
+        //默认超时时间90s，大于 Config Service 的通知接口的 60 秒。
         request.setReadTimeout(LONG_POLLING_READ_TIMEOUT);
 
         transaction.addData("Url", url);
-
+        //// 发起请求，返回 HttpResponse 对象
         final HttpResponse<List<ApolloConfigNotification>> response =
             m_httpUtil.doGet(request, m_responseType);
 
         logger.debug("Long polling response: {}, url: {}", response.getStatusCode(), url);
+        // 有新的通知，刷新本地的缓存
         if (response.getStatusCode() == 200 && response.getBody() != null) {
+          // 更新 m_notifications
           updateNotifications(response.getBody());
+          // 更新 m_remoteNotificationMessages
           updateRemoteNotifications(response.getBody());
           transaction.addData("Result", response.getBody().toString());
+          //通知对应的 RemoteConfigRepository 们
           notify(lastServiceDto, response.getBody());
         }
 
         //try to load balance
+        // 无新的通知，重置连接的 Config Service 的地址，下次请求不同的 Config Service ，实现负载均衡。
         if (response.getStatusCode() == 304 && random.nextBoolean()) {
           lastServiceDto = null;
         }
@@ -294,14 +299,17 @@ public class RemoteConfigLongPollService {
   }
 
   private void updateNotifications(List<ApolloConfigNotification> deltaNotifications) {
+    // 循环 ApolloConfigNotification
     for (ApolloConfigNotification notification : deltaNotifications) {
       if (Strings.isNullOrEmpty(notification.getNamespaceName())) {
         continue;
       }
+      // 更新 m_notifications
       String namespaceName = notification.getNamespaceName();
       if (m_notifications.containsKey(namespaceName)) {
         m_notifications.put(namespaceName, notification.getNotificationId());
       }
+      // 因为 .properties 在默认情况下被过滤掉，所以我们需要检查是否有 .properties 后缀的通知。如有，更新 m_notifications
       //since .properties are filtered out by default, so we need to check if there is notification with .properties suffix
       String namespaceNameWithPropertiesSuffix =
           String.format("%s.%s", namespaceName, ConfigFileFormat.Properties.getValue());
@@ -310,7 +318,7 @@ public class RemoteConfigLongPollService {
       }
     }
   }
-
+  // 循环 ApolloConfigNotification
   private void updateRemoteNotifications(List<ApolloConfigNotification> deltaNotifications) {
     for (ApolloConfigNotification notification : deltaNotifications) {
       if (Strings.isNullOrEmpty(notification.getNamespaceName())) {
@@ -320,14 +328,14 @@ public class RemoteConfigLongPollService {
       if (notification.getMessages() == null || notification.getMessages().isEmpty()) {
         continue;
       }
-
+      // 若不存在 Namespace 对应的 ApolloNotificationMessages ，进行创建
       ApolloNotificationMessages localRemoteMessages =
           m_remoteNotificationMessages.get(notification.getNamespaceName());
       if (localRemoteMessages == null) {
         localRemoteMessages = new ApolloNotificationMessages();
         m_remoteNotificationMessages.put(notification.getNamespaceName(), localRemoteMessages);
       }
-
+    // 合并通知消息到 ApolloNotificationMessages 中
       localRemoteMessages.mergeFrom(notification.getMessages());
     }
   }
