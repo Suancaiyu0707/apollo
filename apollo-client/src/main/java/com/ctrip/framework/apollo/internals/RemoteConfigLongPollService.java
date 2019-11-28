@@ -278,18 +278,24 @@ public class RemoteConfigLongPollService {
     if (notifications == null || notifications.isEmpty()) {
       return;
     }
+    // 循环 ApolloConfigNotification
     for (ApolloConfigNotification notification : notifications) {
       String namespaceName = notification.getNamespaceName();
+      // 创建 RemoteConfigRepository 数组，避免并发问题
       //create a new list to avoid ConcurrentModificationException
       List<RemoteConfigRepository> toBeNotified =
           Lists.newArrayList(m_longPollNamespaces.get(namespaceName));
+      // 获得远程的 ApolloNotificationMessages 对象，并克隆
       ApolloNotificationMessages originalMessages = m_remoteNotificationMessages.get(namespaceName);
       ApolloNotificationMessages remoteMessages = originalMessages == null ? null : originalMessages.clone();
       //since .properties are filtered out by default, so we need to check if there is any listener for it
+      // 因为 .properties 在默认情况下被过滤掉，所以我们需要检查是否有监听器。若有，添加到 RemoteConfigRepository 数组
       toBeNotified.addAll(m_longPollNamespaces
           .get(String.format("%s.%s", namespaceName, ConfigFileFormat.Properties.getValue())));
+      // 循环 RemoteConfigRepository ，进行通知
       for (RemoteConfigRepository remoteConfigRepository : toBeNotified) {
         try {
+          // 进行通知
           remoteConfigRepository.onLongPollNotified(lastServiceDto, remoteMessages);
         } catch (Throwable ex) {
           Tracer.logError(ex);
