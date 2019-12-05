@@ -36,6 +36,17 @@ public class ItemController {
     this.commitService = commitService;
   }
 
+  /***
+   * 创建一个item
+   * @param appId 应用id
+   * @param clusterName 集群名称
+   * @param namespaceName namespace名称
+   * @param dto
+   * @return
+   * 1、利用构建器ConfigChangeContentBuilder构建一个包含了item变更的信息的构建器
+   * 2、创建一个新的item对象
+   * 3、维护一条Commit操作记录
+   */
   @PreAcquireNamespaceLock
   @PostMapping("/apps/{appId}/clusters/{clusterName}/namespaces/{namespaceName}/items")
   public ItemDTO create(@PathVariable("appId") String appId,
@@ -148,6 +159,16 @@ public class ItemController {
     return BeanUtils.transform(ItemDTO.class, item);
   }
 
+  /***
+   * 查询item是否已存在
+   * @param appId appId
+   * @param clusterName 集群名称
+   * @param namespaceName 命名空间名称
+   * @param key item的key
+   * @return
+   * 1、先根据appId, clusterName, namespaceName查询到namespace
+   * 2、再根据namespaceId和key查询item
+   */
   @GetMapping("/apps/{appId}/clusters/{clusterName}/namespaces/{namespaceName}/items/{key:.+}")
   public ItemDTO get(@PathVariable("appId") String appId,
                      @PathVariable("clusterName") String clusterName,

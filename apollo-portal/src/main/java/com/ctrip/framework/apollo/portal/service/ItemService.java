@@ -55,6 +55,10 @@ public class ItemService {
    *
    * @return parse result
    */
+  /***
+   * 批量更新item
+   * @param model
+   */
   public void updateConfigItemByText(NamespaceTextModel model) {
     String appId = model.getAppId();
     Env env = model.getEnv();
@@ -62,17 +66,18 @@ public class ItemService {
     String namespaceName = model.getNamespaceName();
     long namespaceId = model.getNamespaceId();
     String configText = model.getConfigText();
-
+    // 获得对应格式的 ConfigTextResolver 对象
     ConfigTextResolver resolver =
         model.getFormat() == ConfigFileFormat.Properties ? propertyResolver : fileTextResolver;
-
+    // 解析成 ItemChangeSets
     ItemChangeSets changeSets = resolver.resolve(namespaceId, configText,
         itemAPI.findItems(appId, env, clusterName, namespaceName));
     if (changeSets.isEmpty()) {
       return;
     }
-
+    // 设置修改人为当前管理员
     changeSets.setDataChangeLastModifiedBy(userInfoHolder.getUser().getUserId());
+    // 调用 Admin Service API ，批量更新 Item。
     updateItems(appId, env, clusterName, namespaceName, changeSets);
 
     Tracer.logEvent(TracerEventType.MODIFY_NAMESPACE_BY_TEXT,
@@ -84,7 +89,18 @@ public class ItemService {
     itemAPI.updateItemsByChangeSet(appId, env, clusterName, namespaceName, changeSets);
   }
 
-
+  /***
+   * 新建一个item
+   * @param appId
+   * @param env
+   * @param clusterName
+   * @param namespaceName
+   * @param item
+   * @return
+   * 1、校验item是否已存在
+   * 2、设置item的namespaceId
+   * 3、新建一个ItemDTO
+   */
   public ItemDTO createItem(String appId, Env env, String clusterName, String namespaceName, ItemDTO item) {
     // 校验 NamespaceDTO 是否存在。若不存在，抛出 BadRequestException 异常
     NamespaceDTO namespace = namespaceAPI.loadNamespace(appId, env, clusterName, namespaceName);

@@ -159,7 +159,7 @@ public class AppNamespaceService {
     appNamespace.setDataChangeLastModifiedBy(createBy);
     //创建一条 AppNamespace
     appNamespace = appNamespaceRepository.save(appNamespace);
-    //为所有的集群都创建一个 AppNamespace
+    // 创建 AppNamespace 在 App 下，每个 Cluster 的 Namespace 对象。
     createNamespaceForAppNamespaceInAllCluster(appNamespace.getAppId(), appNamespace.getName(), createBy);
     //添加一条 创建 appNamespace的审计记录
     auditService.audit(AppNamespace.class.getSimpleName(), appNamespace.getId(), Audit.OP.INSERT, createBy);

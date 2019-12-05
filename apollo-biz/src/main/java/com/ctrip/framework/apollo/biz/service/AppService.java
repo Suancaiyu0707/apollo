@@ -52,6 +52,11 @@ public class AppService {
     return appRepository.findByName(name);
   }
 
+  /***
+   * 判断appId是否已存在
+   * @param appId
+   * @return
+   */
   public App findOne(String appId) {
     return appRepository.findByAppId(appId);
   }

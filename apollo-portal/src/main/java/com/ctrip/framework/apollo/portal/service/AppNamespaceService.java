@@ -101,6 +101,18 @@ public class AppNamespaceService {
     return createAppNamespaceInLocal(appNamespace, true);
   }
 
+  /***
+   *
+   * @param appNamespace
+   * @param appendNamespacePrefix
+   * @return
+   * 1、校验对应的 App 是否存在。若不存在，抛出 BadRequestException 异常
+   * 2、拼接 AppNamespace 的 `name` 属性。
+   * 3、
+   *    如果是一个public的namespace，则需要判断namespace全局唯一
+   *    如果是一个private的，则根据appId和namespace检查唯一。同时名称不能跟public的namespace一致
+   * 4、创建一个AppNamespace记录，并创建相应的角色并为操作员分配角色权限
+   */
   @Transactional
   public AppNamespace createAppNamespaceInLocal(AppNamespace appNamespace, boolean appendNamespacePrefix) {
     String appId = appNamespace.getAppId();
@@ -134,7 +146,7 @@ public class AppNamespaceService {
     }
 
     appNamespace.setDataChangeLastModifiedBy(operator);
-
+    //如果是一个public的namespace，则需要判断namespace全局唯一
     // globally uniqueness check for public app namespace
     if (appNamespace.isPublic()) {
       checkAppNamespaceGlobalUniqueness(appNamespace);
@@ -143,6 +155,7 @@ public class AppNamespaceService {
       if (appNamespaceRepository.findByAppIdAndName(appNamespace.getAppId(), appNamespace.getName()) != null) {
         throw new BadRequestException("Private AppNamespace " + appNamespace.getName() + " already exists!");
       }
+      //如果是一个private的，则根据appId和namespace检查唯一，同时名称不能跟public的namespace一致
       // should not have the same with public app namespace
       checkPublicAppNamespaceGlobalUniqueness(appNamespace);
     }

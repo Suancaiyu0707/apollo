@@ -60,6 +60,16 @@ public class ItemService {
 
   }
 
+  /***
+   * 查询item是否已存在
+   * @param appId appId
+   * @param clusterName 集群名称
+   * @param namespaceName 命名空间名称
+   * @param key item的key
+   * @return
+   * 1、检查namespace是否存在
+   * 2、根据namespaceId检查item是否存在
+   */
   public Item findOne(String appId, String clusterName, String namespaceName, String key) {
     Namespace namespace = namespaceService.findOne(appId, clusterName, namespaceName);
     if (namespace == null) {
@@ -126,6 +136,11 @@ public class ItemService {
     return itemRepository.findByNamespaceIdAndDataChangeLastModifiedTimeGreaterThan(namespaceId, date);
   }
 
+  /***
+   * 创建一个item记录
+   * @param entity
+   * @return
+   */
   @Transactional
   public Item save(Item entity) {
     checkItemKeyLength(entity.getKey());
@@ -134,6 +149,7 @@ public class ItemService {
     entity.setId(0);//protection
 
     if (entity.getLineNum() == 0) {
+      //根据namesapceId获得当前最大的行数，然后行数编号+1
       Item lastItem = findLastOne(entity.getNamespaceId());
       int lineNum = lastItem == null ? 1 : lastItem.getLineNum() + 1;
       entity.setLineNum(lineNum);

@@ -32,7 +32,12 @@ public class ClusterService {
     this.namespaceService = namespaceService;
   }
 
-
+  /***
+   * 根据appId和clusterName判断集群是否存在
+   * @param appId 应用appId
+   * @param clusterName 集群名称
+   * @return
+   */
   public boolean isClusterNameUnique(String appId, String clusterName) {
     Objects.requireNonNull(appId, "AppId must not be null");
     Objects.requireNonNull(clusterName, "ClusterName must not be null");
@@ -67,6 +72,8 @@ public class ClusterService {
    * @param entity
    * @return
    * 可以发现，saveWithInstanceOfAppNamespaces本身也是调用的 saveWithoutInstanceOfAppNamespaces
+   * 1、创建一条cluster集群记录
+   * 2、为每个AppNamespace创建一个namespace
    */
   @Transactional
   public Cluster saveWithInstanceOfAppNamespaces(Cluster entity) {
@@ -133,6 +140,11 @@ public class ClusterService {
     return managedCluster;
   }
 
+  /***
+   * 为appId创建默认的cluster，集群名称default
+   * @param appId
+   * @param createBy
+   */
   @Transactional
   public void createDefaultCluster(String appId, String createBy) {
     if (!isClusterNameUnique(appId, ConfigConsts.CLUSTER_NAME_DEFAULT)) {
@@ -149,11 +161,12 @@ public class ClusterService {
   }
 
   public List<Cluster> findChildClusters(String appId, String parentClusterName) {
+    //查找父集群
     Cluster parentCluster = findOne(appId, parentClusterName);
     if (parentCluster == null) {
       throw new BadRequestException("parent cluster not exist");
     }
-
+    //根据父集群id 查找子集群(灰度分支)
     return clusterRepository.findByParentClusterId(parentCluster.getId());
   }
 

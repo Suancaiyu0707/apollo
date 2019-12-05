@@ -38,13 +38,13 @@ public class ClusterController {
   public ClusterDTO create(@PathVariable("appId") String appId,
                            @RequestParam(value = "autoCreatePrivateNamespace", defaultValue = "true") boolean autoCreatePrivateNamespace,
                            @Valid @RequestBody ClusterDTO dto) {
-    Cluster entity = BeanUtils.transform(Cluster.class, dto);
+    Cluster entity = BeanUtils.transform(Cluster.class, dto);//Cluster{id=0, dataChangeCreatedBy=apollo, dataChangeLastModifiedBy=apollo, name=spring-cloud-alibaba, appId=10001, parentClusterId=0}
     //根据集群名称和appId 检查集群名称是否重复
     Cluster managedEntity = clusterService.findOne(appId, entity.getName());
     if (managedEntity != null) {
       throw new BadRequestException("cluster already exist.");
     }
-    //是否是private私有的命名空间
+    //是否是private私有的命名空间 默认是true
     if (autoCreatePrivateNamespace) {
       entity = clusterService.saveWithInstanceOfAppNamespaces(entity);
     } else {
@@ -87,6 +87,12 @@ public class ClusterController {
     return BeanUtils.transform(ClusterDTO.class, cluster);
   }
 
+  /***
+   * 检查集群信息的唯一性
+   * @param appId 应用appId
+   * @param clusterName 集群名称
+   * @return
+   */
   @GetMapping("/apps/{appId}/cluster/{clusterName}/unique")
   public boolean isAppIdUnique(@PathVariable("appId") String appId,
                                @PathVariable("clusterName") String clusterName) {

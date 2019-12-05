@@ -10,20 +10,32 @@ import org.springframework.util.CollectionUtils;
 
 import java.util.List;
 
+/**
+ * 文件配置文本解析器
+ * 适用于 yaml、yml、json、xml 格式
+ */
 @Component("fileTextResolver")
 public class FileTextResolver implements ConfigTextResolver {
 
-
+  /**
+   *
+   * @param namespaceId Namespace 编号
+   * @param configText 配置文本
+   * @param baseItems 已存在的 ItemDTO 们
+   * @return
+   */
   @Override
   public ItemChangeSets resolve(long namespaceId, String configText, List<ItemDTO> baseItems) {
     ItemChangeSets changeSets = new ItemChangeSets();
+    // 配置文本为空，不进行修改
     if (StringUtils.isEmpty(configText)) {
       return changeSets;
     }
+    // 不存在已有配置，创建 ItemDTO 到 ItemChangeSets 新增项
     if (CollectionUtils.isEmpty(baseItems)) {
       changeSets.addCreateItem(createItem(namespaceId, 0, configText));
-    } else {
-      ItemDTO beforeItem = baseItems.get(0);
+    } else {// 已存在配置，创建 ItemDTO 到 ItemChangeSets 修改项
+      ItemDTO beforeItem = baseItems.get(0);//因为 yaml 等，有且仅有一条。
       if (!configText.equals(beforeItem.getValue())) {//update
         changeSets.addUpdateItem(createItem(namespaceId, beforeItem.getId(), configText));
       }

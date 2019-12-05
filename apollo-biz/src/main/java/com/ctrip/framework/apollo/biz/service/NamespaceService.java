@@ -83,6 +83,13 @@ public class NamespaceService {
     return namespaceRepository.findById(namespaceId).orElse(null);
   }
 
+  /**
+   * 根据 appId + clusterName + namespaceName 查询 Namespace
+   * @param appId appId
+   * @param clusterName 集群名称
+   * @param namespaceName namespace
+   * @return
+   */
   public Namespace findOne(String appId, String clusterName, String namespaceName) {
     return namespaceRepository.findByAppIdAndClusterNameAndNamespaceName(appId, clusterName,
                                                                          namespaceName);
@@ -187,30 +194,39 @@ public class NamespaceService {
     return namespaces;
   }
 
+  /****
+   * 根据appid 和 namespaceName 查询Namespace表
+   * @param appId
+   * @param namespaceName
+   * @return
+   */
   public List<Namespace> findByAppIdAndNamespaceName(String appId, String namespaceName) {
     return namespaceRepository.findByAppIdAndNamespaceNameOrderByIdAsc(appId, namespaceName);
   }
 
   /**
    * 查找当前namespace的所有灰度灰度的分支(cluster)
-   * @param appId
-   * @param parentClusterName
-   * @param namespaceName
+   * @param appId appid
+   * @param parentClusterName 父集群名称
+   * @param namespaceName 命名空间
    * @return
    */
   public Namespace findChildNamespace(String appId, String parentClusterName, String namespaceName) {
     //根据appId和namespace查找namespace表，如果大于1，则表示没有子namespaace
     List<Namespace> namespaces = findByAppIdAndNamespaceName(appId, namespaceName);
+    ///若只有一个 Namespace ，说明没有子 Namespace
     if (CollectionUtils.isEmpty(namespaces) || namespaces.size() == 1) {
       return null;
     }
-
+    //查找 灰度的集群(一个集群下面有多个namespace，每个namespace都可能有自己的一个灰度分支)
     List<Cluster> childClusters = clusterService.findChildClusters(appId, parentClusterName);
+    // 若无子 Cluster ，说明没有子 Namespace
     if (CollectionUtils.isEmpty(childClusters)) {
       return null;
     }
-
+    // 创建子 Cluster 的名字的集合
     Set<String> childClusterNames = childClusters.stream().map(Cluster::getName).collect(Collectors.toSet());
+    // 遍历 Namespace 数组，比较 Cluster 的名字。若符合，则返回该子 Namespace 对象。
     //the child namespace is the intersection of the child clusters and child namespaces
     for (Namespace namespace : namespaces) {
       if (childClusterNames.contains(namespace.getClusterName())) {
@@ -335,6 +351,11 @@ public class NamespaceService {
     return deleted;
   }
 
+  /**
+   * 新增一条namespace记录
+   * @param entity
+   * @return
+   */
   @Transactional
   public Namespace save(Namespace entity) {
     if (!isNamespaceUnique(entity.getAppId(), entity.getClusterName(), entity.getNamespaceName())) {

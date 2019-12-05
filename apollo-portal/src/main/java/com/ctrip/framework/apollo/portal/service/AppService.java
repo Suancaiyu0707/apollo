@@ -98,6 +98,14 @@ public class AppService {
    *  保存 App 对象到数据库
    * @param app
    * @return
+   * 1、创建App对象：10001
+   * 2、创建默认 的appNamespace，叫做'application'
+   * 3、初始化app的角色信息：
+   *    Master+10001
+   *    ModifyNamespace+10001+application
+   *    ReleaseNamespace+10001+application
+   *    ModifyNamespace+10001+application+DEV
+   *    ReleaseNamespace+10001+application+DEV
    */
   @Transactional
   public App createAppInLocal(App app) {

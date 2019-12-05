@@ -46,24 +46,28 @@ public class NamespaceBranchService {
 
   @Transactional
   public Namespace createBranch(String appId, String parentClusterName, String namespaceName, String operator){
+    // 获得子 Namespace 对象
     Namespace childNamespace = findBranch(appId, parentClusterName, namespaceName);
+    // 若存在子 Namespace 对象，则抛出 BadRequestException 异常。一个 Namespace 有且仅允许有一个子 Namespace 。
     if (childNamespace != null){
       throw new BadRequestException("namespace already has branch");
     }
-
+    // 获得父 Cluster 对象
     Cluster parentCluster = clusterService.findOne(appId, parentClusterName);
+    // 若父 Cluster 对象不存在，抛出 BadRequestException 异常
     if (parentCluster == null || parentCluster.getParentClusterId() != 0) {
       throw new BadRequestException("cluster not exist or illegal cluster");
     }
 
-    //create child cluster
+    // 创建子 Cluster 对象，并根据parentClusterId进行关联
     Cluster childCluster = createChildCluster(appId, parentCluster, namespaceName, operator);
-
+    // 保存子 Cluster 对象
     Cluster createdChildCluster = clusterService.saveWithoutInstanceOfAppNamespaces(childCluster);
-
+    // 创建子 Namespace 对象
     //create child namespace
     childNamespace = createNamespaceBranch(appId, createdChildCluster.getName(),
                                                         namespaceName, operator);
+    //创建子namespace
     return namespaceService.save(childNamespace);
   }
 
@@ -85,22 +89,23 @@ public class NamespaceBranchService {
 
   private void doUpdateBranchGrayRules(String appId, String clusterName, String namespaceName,
                                               String branchName, GrayReleaseRule newRules, boolean recordReleaseHistory, int releaseOperation) {
+    // 获得子 Namespace 的灰度发布规则
     GrayReleaseRule oldRules = grayReleaseRuleRepository
         .findTopByAppIdAndClusterNameAndNamespaceNameAndBranchNameOrderByIdDesc(appId, clusterName, namespaceName, branchName);
-
+    // 获得最新的子 Namespace 的 Release 对象
     Release latestBranchRelease = releaseService.findLatestActiveRelease(appId, branchName, namespaceName);
-
+// 获得最新的子 Namespace 的 Release 对象的编号
     long latestBranchReleaseId = latestBranchRelease != null ? latestBranchRelease.getId() : 0;
-
+    //// 设置 GrayReleaseRule 的 `releaseId`
     newRules.setReleaseId(latestBranchReleaseId);
-
+    // 保存新的 GrayReleaseRule 对象
     grayReleaseRuleRepository.save(newRules);
-
+    // 删除老的 GrayReleaseRule 对象
     //delete old rules
     if (oldRules != null) {
       grayReleaseRuleRepository.delete(oldRules);
     }
-
+    // 若需要，创建 ReleaseHistory 对象，并保存
     if (recordReleaseHistory) {
       Map<String, Object> releaseOperationContext = Maps.newHashMap();
       releaseOperationContext.put(ReleaseOperationContext.RULES, GrayReleaseRuleItemTransformer
@@ -180,12 +185,21 @@ public class NamespaceBranchService {
     auditService.audit("Branch", toDeleteCluster.getId(), Audit.OP.DELETE, operator);
   }
 
+  /***
+   * 创建一个分支的集群
+   * @param appId
+   * @param parentCluster
+   * @param namespaceName
+   * @param operator
+   * @return
+   */
   private Cluster createChildCluster(String appId, Cluster parentCluster,
                                      String namespaceName, String operator) {
 
     Cluster childCluster = new Cluster();
     childCluster.setAppId(appId);
-    childCluster.setParentClusterId(parentCluster.getId());
+    childCluster.setParentClusterId(parentCluster.getId());//作为父子集群的关联
+    //集群名称 随机的一个名称
     childCluster.setName(UniqueKeyGenerator.generate(appId, parentCluster.getName(), namespaceName));
     childCluster.setDataChangeCreatedBy(operator);
     childCluster.setDataChangeLastModifiedBy(operator);
@@ -193,7 +207,14 @@ public class NamespaceBranchService {
     return childCluster;
   }
 
-
+  /***
+   * 创建分支的namespace
+   * @param appId
+   * @param clusterName 集群/子集群的名字
+   * @param namespaceName
+   * @param operator
+   * @return
+   */
   private Namespace createNamespaceBranch(String appId, String clusterName, String namespaceName, String operator) {
     Namespace childNamespace = new Namespace();
     childNamespace.setAppId(appId);

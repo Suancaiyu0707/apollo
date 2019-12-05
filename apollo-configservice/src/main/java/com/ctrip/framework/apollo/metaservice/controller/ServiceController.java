@@ -29,7 +29,10 @@ public class ServiceController {
     this.discoveryService = discoveryService;
   }
 
-
+  /***
+   * 获得 Meta Service 集群地址
+   * @return
+   */
   @RequestMapping("/meta")
   public List<ServiceDTO> getMetaService() {
     List<InstanceInfo> instances = discoveryService.getMetaServiceInstances();
@@ -37,6 +40,12 @@ public class ServiceController {
     return result;
   }
 
+  /**
+   * 获得 Config Service地址
+   * @param appId
+   * @param clientIp
+   * @return
+   */
   @RequestMapping("/config")
   public List<ServiceDTO> getConfigService(
       @RequestParam(value = "appId", defaultValue = "") String appId,
@@ -46,6 +55,10 @@ public class ServiceController {
     return result;
   }
 
+  /***
+   * 获得Admin Service 集群地址
+   * @return
+   */
   @RequestMapping("/admin")
   public List<ServiceDTO> getAdminService() {
     List<InstanceInfo> instances = discoveryService.getAdminServiceInstances();

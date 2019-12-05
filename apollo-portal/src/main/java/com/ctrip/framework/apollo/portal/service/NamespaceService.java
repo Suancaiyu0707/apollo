@@ -75,12 +75,20 @@ public class NamespaceService {
     this.rolePermissionService = rolePermissionService;
   }
 
-
+  /***
+   * 创建一个namespace对象
+   * @param env
+   * @param namespace
+   * @return
+   */
   public NamespaceDTO createNamespace(Env env, NamespaceDTO namespace) {
+    //初始化创建人信息
     if (StringUtils.isEmpty(namespace.getDataChangeCreatedBy())) {
       namespace.setDataChangeCreatedBy(userInfoHolder.getUser().getUserId());
     }
+    //初始化修改人信息
     namespace.setDataChangeLastModifiedBy(userInfoHolder.getUser().getUserId());
+    //创建Namespace
     NamespaceDTO createdNamespace = namespaceAPI.createNamespace(env, namespace);
 
     Tracer.logEvent(TracerEventType.CREATE_NAMESPACE,

@@ -70,12 +70,16 @@ public class DefaultRoleInitializationService implements RoleInitializationServi
   @Transactional
   public void initNamespaceRoles(String appId, String namespaceName, String operator) {
     //初始化一条可修改对应namespace的权限
+    //创建修改的角色名称：ModifyNamespace+appId+namespaceName
+    //为操作员分配对应的权限
     String modifyNamespaceRoleName = RoleUtils.buildModifyNamespaceRoleName(appId, namespaceName);
     if (rolePermissionService.findRoleByRoleName(modifyNamespaceRoleName) == null) {//查询role表
       createNamespaceRole(appId, namespaceName, PermissionType.MODIFY_NAMESPACE,
           modifyNamespaceRoleName, operator);//创建一条修改namespacce的权限
     }
     //维护角色和对应的namespace的权限的的关联关系(类似于赋权)
+    //创建一个发布的角色名称：ReleaseNamespace+appId+namespaceName
+    //为操作员分配对应的权限
     String releaseNamespaceRoleName = RoleUtils.buildReleaseNamespaceRoleName(appId, namespaceName);
     if (rolePermissionService.findRoleByRoleName(releaseNamespaceRoleName) == null) {
       createNamespaceRole(appId, namespaceName, PermissionType.RELEASE_NAMESPACE,
@@ -85,8 +89,9 @@ public class DefaultRoleInitializationService implements RoleInitializationServi
 
   @Transactional
   public void initNamespaceEnvRoles(String appId, String namespaceName, String operator) {
+    //获得环境配置列表
     List<Env> portalEnvs = portalConfig.portalSupportedEnvs();
-
+    //遍历环境配置，为每个环境初始化特殊角色
     for (Env env : portalEnvs) {
       initNamespaceSpecificEnvRoles(appId, namespaceName, env.toString(), operator);
     }
@@ -146,6 +151,14 @@ public class DefaultRoleInitializationService implements RoleInitializationServi
     return role;
   }
 
+  /***
+   * 为操作员分配对应的角色权限类型
+   * @param appId
+   * @param namespaceName
+   * @param permissionType
+   * @param roleName
+   * @param operator
+   */
   private void createNamespaceRole(String appId, String namespaceName, String permissionType,
                                    String roleName, String operator) {
     //创建一条RolePermission记录

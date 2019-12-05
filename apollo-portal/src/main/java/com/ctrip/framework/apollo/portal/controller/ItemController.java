@@ -47,6 +47,14 @@ public class ItemController {
     this.permissionValidator = permissionValidator;
   }
 
+  /***
+   * 批量变更 Namespace 配置项
+   * @param appId
+   * @param env
+   * @param clusterName
+   * @param namespaceName
+   * @param model
+   */
   @PreAuthorize(value = "@permissionValidator.hasModifyNamespacePermission(#appId, #namespaceName, #env)")
   @PutMapping(value = "/apps/{appId}/envs/{env}/clusters/{clusterName}/namespaces/{namespaceName}/items", consumes = {
       "application/json"})
@@ -57,15 +65,25 @@ public class ItemController {
     model.setClusterName(clusterName);
     model.setEnv(env);
     model.setNamespaceName(namespaceName);
-
+    // 批量更新一个 Namespace 下的 Item
     configService.updateConfigItemByText(model);
   }
 
+  /***
+   * 新建item对象
+   * @param appId
+   * @param env
+   * @param clusterName
+   * @param namespaceName
+   * @param item
+   * @return
+   */
   @PreAuthorize(value = "@permissionValidator.hasModifyNamespacePermission(#appId, #namespaceName, #env)")
   @PostMapping("/apps/{appId}/envs/{env}/clusters/{clusterName}/namespaces/{namespaceName}/item")
   public ItemDTO createItem(@PathVariable String appId, @PathVariable String env,
                             @PathVariable String clusterName, @PathVariable String namespaceName,
                             @RequestBody ItemDTO item) {
+    //item非空且key非空
     checkModel(isValidItem(item));//校验 Item 格式正确
 
     //protect

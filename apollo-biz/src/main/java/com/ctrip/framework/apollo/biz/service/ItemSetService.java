@@ -35,23 +35,33 @@ public class ItemSetService {
     return updateSet(namespace.getAppId(), namespace.getClusterName(), namespace.getNamespaceName(), changeSets);
   }
 
+  /***
+   * 批量修改item
+   * @param appId
+   * @param clusterName
+   * @param namespaceName
+   * @param changeSet
+   * @return
+   */
   @Transactional
   public ItemChangeSets updateSet(String appId, String clusterName,
                                   String namespaceName, ItemChangeSets changeSet) {
+    //操作人
     String operator = changeSet.getDataChangeLastModifiedBy();
     ConfigChangeContentBuilder configChangeContentBuilder = new ConfigChangeContentBuilder();
-
+    //判断是否有新建的item，有的话一条条新增
     if (!CollectionUtils.isEmpty(changeSet.getCreateItems())) {
       for (ItemDTO item : changeSet.getCreateItems()) {
         Item entity = BeanUtils.transform(Item.class, item);
         entity.setDataChangeCreatedBy(operator);
         entity.setDataChangeLastModifiedBy(operator);
         Item createdItem = itemService.save(entity);
+        // 添加到 ConfigChangeContentBuilder 中
         configChangeContentBuilder.createItem(createdItem);
       }
       auditService.audit("ItemSet", null, Audit.OP.INSERT, operator);
     }
-
+    //判断是否有更新的item，有的话一条条更新
     if (!CollectionUtils.isEmpty(changeSet.getUpdateItems())) {
       for (ItemDTO item : changeSet.getUpdateItems()) {
         Item entity = BeanUtils.transform(Item.class, item);
@@ -69,20 +79,22 @@ public class ItemSetService {
         managedItem.setDataChangeLastModifiedBy(operator);
 
         Item updatedItem = itemService.update(managedItem);
+        // 添加到 ConfigChangeContentBuilder 中
         configChangeContentBuilder.updateItem(beforeUpdateItem, updatedItem);
 
       }
       auditService.audit("ItemSet", null, Audit.OP.UPDATE, operator);
     }
-
+    //判断是否有删除的item，有的话一条条删除
     if (!CollectionUtils.isEmpty(changeSet.getDeleteItems())) {
       for (ItemDTO item : changeSet.getDeleteItems()) {
         Item deletedItem = itemService.delete(item.getId(), operator);
+        // 添加到 ConfigChangeContentBuilder 中
         configChangeContentBuilder.deleteItem(deletedItem);
       }
       auditService.audit("ItemSet", null, Audit.OP.DELETE, operator);
     }
-
+    //创建提交记录
     if (configChangeContentBuilder.hasContent()){
       createCommit(appId, clusterName, namespaceName, configChangeContentBuilder.build(),
                    changeSet.getDataChangeLastModifiedBy());

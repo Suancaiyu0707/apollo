@@ -34,13 +34,22 @@ public class AppNamespaceController {
     this.namespaceService = namespaceService;
   }
 
+  /***
+   * 创建一个AppNamespace
+   * @param appNamespace
+   * @param silentCreation
+   * @return
+   * 1、根据appId、namespaceName 检查AppNamespace唯一性
+   * 2、如果managedEntity不存在，则创建一个新的AppNamespace，同时为app下每个cluster创建AppNamespace
+   * 3、如果managedEntity存在且silentCreation我为true
+   */
   @PostMapping("/apps/{appId}/appnamespaces")
   public AppNamespaceDTO create(@RequestBody AppNamespaceDTO appNamespace,
                                 @RequestParam(defaultValue = "false") boolean silentCreation) {
 
     AppNamespace entity = BeanUtils.transform(AppNamespace.class, appNamespace);
     AppNamespace managedEntity = appNamespaceService.findOne(entity.getAppId(), entity.getName());
-
+    //新建一个 AppNamespace
     if (managedEntity == null) {
       if (StringUtils.isEmpty(entity.getFormat())){
         entity.setFormat(ConfigFileFormat.Properties.getValue());

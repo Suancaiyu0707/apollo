@@ -30,10 +30,14 @@ public class AppNamespace extends BaseEntity {
   @NotBlank(message = "AppId cannot be blank")
   @Column(name = "AppId", nullable = false)
   private String appId;
-
+  //指定配置文件的类型
   @Column(name = "Format", nullable = false)
   private String format;
-
+  /**
+   * 是否公用的
+   * private （私有的）：private 权限的 Namespace ，只能被所属的应用获取到。一个应用尝试获取其它应用 private 的 Namespace ，Apollo 会报 “404” 异常。
+   * public （公共的）：public 权限的 Namespace ，能被任何应用获取。
+   */
   @Column(name = "IsPublic", columnDefinition = "Bit default '0'")
   private boolean isPublic = false;
 

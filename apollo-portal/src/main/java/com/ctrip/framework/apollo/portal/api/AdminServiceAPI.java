@@ -45,7 +45,7 @@ public class AdminServiceAPI {
   }
   //实现 API 抽象类，封装对 Admin Service 的 App 模块的 API 调用
   @Service
-  public static class AppAPI extends API {
+  public static class AppAPI extends API {//对应apollo-adminservice：AppController
 
       public AppDTO loadApp(Env env, String appId) {
           return restTemplate.get(env, "apps/{appId}", AppDTO.class, appId);

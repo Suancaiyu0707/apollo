@@ -26,8 +26,16 @@ public class ClusterService {
     return clusterAPI.findClustersByApp(appId, env);
   }
 
+  /***
+   *
+   * @param env
+   * @param cluster
+   * @return
+   * 1、根据appId、集群名称 判断集群的唯一性
+   * 2、创建一个集群信息
+   */
   public ClusterDTO createCluster(Env env, ClusterDTO cluster) {
-    //根据appId、环境、集群名称 判断集群的唯一性
+    //根据appId、集群名称 判断集群的唯一性
     if (!clusterAPI.isClusterUnique(cluster.getAppId(), env, cluster.getName())) {
       throw new BadRequestException(String.format("cluster %s already exists.", cluster.getName()));
     }//创建集群信息

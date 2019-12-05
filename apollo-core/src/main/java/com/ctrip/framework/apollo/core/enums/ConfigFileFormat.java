@@ -4,6 +4,7 @@ import com.ctrip.framework.apollo.core.utils.StringUtils;
 
 /**
  * @author Jason Song(song_s@ctrip.com)
+ * 六种配置文件类型
  */
 public enum ConfigFileFormat {
   Properties("properties"), XML("xml"), JSON("json"), YML("yml"), YAML("yaml"), TXT("txt");
