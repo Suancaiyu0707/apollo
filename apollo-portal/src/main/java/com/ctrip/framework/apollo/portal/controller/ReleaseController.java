@@ -61,6 +61,8 @@ public class ReleaseController {
    * @param namespaceName
    * @param model
    * @return
+   * 1、发布配置
+   * 2、发布一个发布事件
    */
   //校验是否有发布配置的权限
   @PreAuthorize(value = "@permissionValidator.hasReleaseNamespacePermission(#appId, #namespaceName, #env)")

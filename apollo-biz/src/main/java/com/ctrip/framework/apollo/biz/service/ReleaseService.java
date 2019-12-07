@@ -172,6 +172,21 @@ public class ReleaseService {
    * @param operator 操作人
    * @param isEmergencyPublish 是否紧急发布
    * @return
+   * 1、检验 namespace 的锁定，如果是紧急发布的话，则不检验。检验发布人和编辑的人是否同一个
+   * 2、获得当前待发布的namespace下所有的item(包括已发布和未发布的)
+   * 3、查找主干的namespace：
+   *    如果当前待发布的namespace是一个灰度的分支，则它的parentClusterId就可以查询到父Namespace
+   * 4、如果父namespace不为空，也就是当前namespace是灰度的namespace进行发布
+   *    a、将主干的已发布的namespace合并到当前灰度分支，维护完整的item.
+   *    b、根据完整的item发布一条新的release记录(主干的namespace的发布记录不变)
+   *    c、生成一条grayReleaseRule，用于关联限制这条灰度发布记录影响的客户端
+   * 5、如果不是一个灰度发布：
+   *    a、查找当前主干namespace下的灰度分支(如果有的话，最多也就只会有一条)
+   *    b、创建发布版本记录：
+   *      发布记录：release和 发布历史记录：releaseHistory
+   *    c、如果当前namespace下存在灰度发布分支：
+   *       自动将主干合并到子 Namespace ，并进行一次子 Namespace 的发布
+   *
    */
   @Transactional
   public Release publish(Namespace namespace, String releaseName, String releaseComment,
@@ -189,7 +204,7 @@ public class ReleaseService {
       return publishBranchNamespace(parentNamespace, namespace, operateNamespaceItems,
                                     releaseName, releaseComment, operator, isEmergencyPublish);
     }
-    // 获得子 Namespace 对象
+    // 获得子 Namespace 。根据当前的namespace查找它的子namespace,也就是它的灰度分支（最新的肯定最多就一个）
     Namespace childNamespace = namespaceService.findChildNamespace(namespace);
     Release previousRelease = null;
     if (childNamespace != null) {
@@ -219,13 +234,19 @@ public class ReleaseService {
    * 进行灰度(分支)发布
    * @param parentNamespace 父namespace
    * @param childNamespace 灰度的 namespace
-   * @param childNamespaceItems 当前灰度的namespace中的配置
+   * @param childNamespaceItems 当前灰度的namespace中的配置，不包含主干的item
    * @param releaseName 发布名称
    * @param releaseComment 发布描述
    * @param operator 操作人
    * @param isEmergencyPublish 是否紧急
    * @param grayDelKeys
    * @return
+   * 1、获得parent的cluster的最新的发布版本。这个时候configurations只包含已经发布的item，也就是主干的item
+   * 2、将主干namespace最近发布的版本Release里的配置key-val和当前灰度的灰度分支上要发布的配置进行合并。
+   * 3、将合并后的最新的完整的灰度配置items列表进行发布
+   * 4、创建一条灰度发布记录 release
+   * 5、同时生成一条灰度发布规则：GrayReleaseRule，用于指定发布的release关联的规则里的客户端列表。
+   * 6、整个过程，主干的namespace对应的item并不会改变
    *
    */
   private Release publishBranchNamespace(Namespace parentNamespace, Namespace childNamespace,
@@ -239,9 +260,10 @@ public class ReleaseService {
             gson.fromJson(parentLatestRelease.getConfigurations(),
                     GsonType.CONFIG) : new HashMap<>();
 
-    //表示否是最近有效的  Release 对象
+    //表示是有有最近有效的  Release 对象
+    //获得parent的cluster的最新的发布版本id
     long baseReleaseId = parentLatestRelease == null ? 0 : parentLatestRelease.getId();
-
+    //将本次要发布的配置和父cluster的配置合并
     Map<String, String> configsToPublish = mergeConfiguration(parentConfigurations, childNamespaceItems);
 
     if(!(grayDelKeys == null || grayDelKeys.size()==0)){
@@ -249,7 +271,7 @@ public class ReleaseService {
         configsToPublish.remove(key);
       }
     }
-
+    //灰度发布
     return branchRelease(parentNamespace, childNamespace, releaseName, releaseComment,
         configsToPublish, baseReleaseId, operator, ReleaseOperation.GRAY_RELEASE, isEmergencyPublish,
         childNamespaceItems.keySet());
@@ -294,6 +316,22 @@ public class ReleaseService {
     }
   }
 
+  /***
+   *
+   * @param parentNamespace 主干namespace
+   * @param childNamespace 灰度namespace
+   * @param parentNamespaceItems 主干的items
+   * @param releaseName
+   * @param releaseComment
+   * @param operator
+   * @param masterPreviousRelease
+   * @param parentRelease
+   * @param isEmergencyPublish
+   * 1、查找灰度的最新的发布release
+   * 2、将灰度的最新的发布的release里的item解析出来
+   * 3、将主干的最新的发布的release和灰度的item里进行合并
+   * 4、如果发现合并后的item和原始的灰度里的item不一致，则灰度namespace做一次发布
+   */
   private void mergeFromMasterAndPublishBranch(Namespace parentNamespace, Namespace childNamespace,
                                                Map<String, String> parentNamespaceItems,
                                                String releaseName, String releaseComment,
@@ -348,10 +386,10 @@ public class ReleaseService {
   }
 
   /***
-   *
+   *  灰度分支配置发布
    * @param parentNamespace 父namespace
    * @param childNamespace 灰度的 namespace
-   * @param childNamespaceItems 当前灰度的namespace中的配置
+   * @param childNamespaceItems 当前灰度的namespace中的配置，不包含主干的item
    * @param releaseName 发布名称
    * @param releaseComment 发布描述
    * @param operator 操作人
@@ -377,6 +415,9 @@ public class ReleaseService {
    * @param releaseOperation
    * @param operationContext
    * @return
+   * 1、创建一条最新的发布记录：Release
+   * 2、创建一条发布历史记录：ReleaseHistory
+   *
    */
   private Release masterRelease(Namespace namespace, String releaseName, String releaseComment,
                                 Map<String, String> configurations, String operator,
@@ -396,6 +437,20 @@ public class ReleaseService {
     return release;
   }
 
+  /***
+   * 创建一条Relase发布版本记录和GrayReleaseRule灰度发布记录
+   * @param parentNamespace
+   * @param childNamespace
+   * @param releaseName
+   * @param releaseComment
+   * @param configurations
+   * @param baseReleaseId
+   * @param operator
+   * @param releaseOperation
+   * @param isEmergencyPublish
+   * @param branchReleaseKeys
+   * @return
+   */
   private Release branchRelease(Namespace parentNamespace, Namespace childNamespace,
                                 String releaseName, String releaseComment,
                                 Map<String, String> configurations, long baseReleaseId,
@@ -413,7 +468,7 @@ public class ReleaseService {
     Release release =
         createRelease(childNamespace, releaseName, releaseComment, configurations, operator);
 
-    //update gray release rules
+
     GrayReleaseRule grayReleaseRule = namespaceBranchService.updateRulesReleaseId(childNamespace.getAppId(),
                                                                                   parentNamespace.getClusterName(),
                                                                                   childNamespace.getNamespaceName(),

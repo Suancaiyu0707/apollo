@@ -50,7 +50,9 @@ public class NamespaceAcquireLockAspect {
   @Before("@annotation(PreAcquireNamespaceLock) && args(appId, clusterName, namespaceName, item, ..)")
   public void requireLockAdvice(String appId, String clusterName, String namespaceName,
                                 ItemDTO item) {
+    // 尝试锁定
     acquireLock(appId, clusterName, namespaceName, item.getDataChangeLastModifiedBy());
+
   }
 
   //update item

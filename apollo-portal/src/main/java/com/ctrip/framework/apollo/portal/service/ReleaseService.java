@@ -43,9 +43,10 @@ public class ReleaseService {
   }
 
   /***
-   * 发布配置
+   * 发布配置：直接调用Admin-Service进行发布配置
    * @param model
    * @return
+   *
    */
   public ReleaseDTO publish(NamespaceReleaseModel model) {
     Env env = model.getEnv();

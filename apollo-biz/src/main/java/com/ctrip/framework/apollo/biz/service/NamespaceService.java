@@ -238,7 +238,7 @@ public class NamespaceService {
   }
 
   /***
-   *
+   *  根据当前的namespace查找它的子namespace,也就是它的灰度分支（最新的肯定就一个）
    * @param parentNamespace
    * @return
    */

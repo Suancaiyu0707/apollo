@@ -113,6 +113,10 @@ public class ReleaseController {
    * @param operator 操作人
    * @param isEmergencyPublish 是否紧急发布
    * @return
+   * 1、根据appId、clusterName、namespacename查询对应的要发布的namespace
+   * 2、调用releaseService发布配置
+   * 3、如果是一个灰度发布的话，查找主干的clusterName
+   * 4、向客户端发送发布的消息，通知客户端拉取最新的配置
    */
   @Transactional
   @PostMapping("/apps/{appId}/clusters/{clusterName}/namespaces/{namespaceName}/releases")

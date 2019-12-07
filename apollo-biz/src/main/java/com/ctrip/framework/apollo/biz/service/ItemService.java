@@ -98,6 +98,11 @@ public class ItemService {
     return item;
   }
 
+  /***
+   * 根据namespaceId查询所有的item，并按照linenum进行排序
+   * @param namespaceId
+   * @return
+   */
   public List<Item> findItemsWithoutOrdered(Long namespaceId) {
     List<Item> items = itemRepository.findByNamespaceId(namespaceId);
     if (items == null) {
