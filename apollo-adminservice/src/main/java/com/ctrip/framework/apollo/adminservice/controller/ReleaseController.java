@@ -119,7 +119,7 @@ public class ReleaseController {
    * 4、向客户端发送发布的消息，通知客户端拉取最新的配置
    *    a、向ReleaseMessage表里添加一条最新的记录
    *    b、删除同一namespace旧的的发布记录
-   *    c、ReleaseMessageScanner会定时每秒扫描ReleaseMessage表，找到最新的发布的消息，它会通知ReleaseMessageListener实现类NotificationControllerV2
+   *    c、ReleaseMessageScanner会定时每秒扫描ReleaseMessage表，找到最新的发布的消息，它会通知ReleaseMessageListener实现类NotificationControllerV2.handlerMessage
    *    d、ReleaseMessageListener实现类NotificationControllerV2接收到通知后，会通知client拉取
    */
   @Transactional
