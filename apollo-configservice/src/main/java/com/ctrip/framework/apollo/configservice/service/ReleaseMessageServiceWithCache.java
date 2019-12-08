@@ -101,7 +101,7 @@ public class ReleaseMessageServiceWithCache implements ReleaseMessageListener, I
   }
 
   /**
-   * 超着最新的发布版本记录
+   * 查找最新的发布版本记录
    * @param messages
    * @return
    */

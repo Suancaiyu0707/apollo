@@ -78,6 +78,7 @@ public class AppNamespaceServiceWithCache implements InitializingBean {
     publicAppNamespaceCache = new CaseInsensitiveMapWrapper<>(Maps.newConcurrentMap());
     appNamespaceCache = new CaseInsensitiveMapWrapper<>(Maps.newConcurrentMap());
     appNamespaceIdCache = Maps.newConcurrentMap();
+    //定时任务
     scheduledExecutorService = Executors.newScheduledThreadPool(1, ApolloThreadFactory
         .create("AppNamespaceServiceWithCache", true));
   }
