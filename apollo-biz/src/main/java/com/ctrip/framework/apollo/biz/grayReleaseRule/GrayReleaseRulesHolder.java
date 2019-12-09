@@ -122,12 +122,21 @@ public class GrayReleaseRulesHolder implements ReleaseMessageListener, Initializ
    * @param configCluster apollo上配置的clusterName
    * @param configNamespaceName apollo上配置的namespace
    * @return
+   *
+   * 1、根据configAppId+configCluster+configNamespaceName 直接判断本地的灰度发布的缓存，如果有的话，做下一步判断，没有的话，直接返回。
+   * 2、判断缓存的灰度发布记录是不是活跃有效状态active？
+   *    如果不是的话，则跳过该GrayReleaseRuleCache
+   * 3、检查 GrayReleaseRuleCache 针对的客户端规则ip是不是跟当前的客户端ip匹配，匹配的话，就直接返回这个灰度发布规则对应的发布版本ReleaseId.
    */
-  public Long findReleaseIdFromGrayReleaseRule(String clientAppId, String clientIp, String
-      configAppId, String configCluster, String configNamespaceName) {
+  public Long findReleaseIdFromGrayReleaseRule(String clientAppId, //客户端的appId
+                                               String clientIp, //客户端ip
+                                               String configAppId, //apollo上配置的appId
+                                               String configCluster, //apollo上配置的clusterName
+                                               String configNamespaceName)//apollo上配置的namespace
+                                              {
     //获得灰度发布版本的缓存key：configAppId+configCluster+configNamespaceName
     String key = assembleGrayReleaseRuleKey(configAppId, configCluster, configNamespaceName);
-    //如果判断里不存在，则直接返回
+    //直接判断本地的灰度发布的缓存，如果有的话，做下一步判断，没有的话，直接返回
     if (!grayReleaseRuleCache.containsKey(key)) {
       return null;
     }
@@ -135,7 +144,7 @@ public class GrayReleaseRulesHolder implements ReleaseMessageListener, Initializ
     //如果缓存里存在，则根据key获得灰度的发布记录
     List<GrayReleaseRuleCache> rules = Lists.newArrayList(grayReleaseRuleCache.get(key));
     for (GrayReleaseRuleCache rule : rules) {
-      //如果灰度规则状态是活跃状态，则跳过
+      //如果灰度规则状态不是活跃状态，则跳过
       if (rule.getBranchStatus() != NamespaceBranchStatus.ACTIVE) {
         continue;
       }

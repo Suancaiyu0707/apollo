@@ -83,17 +83,22 @@ public class ConfigController {
    * 7、将查找到的发布版本拼接成ApolloConfig返回给客户端
    */
   @GetMapping(value = "/{appId}/{clusterName}/{namespace:.+}")
-  public ApolloConfig queryConfig(@PathVariable String appId, @PathVariable String clusterName,
+  public ApolloConfig queryConfig(@PathVariable String appId,
+                                  @PathVariable String clusterName,
                                   @PathVariable String namespace,
                                   @RequestParam(value = "dataCenter", required = false) String dataCenter,
+                                  //客户端侧的 Release Key ，用于和获得的 Release 的 releaseKey 对比，判断是否有配置更新。
                                   @RequestParam(value = "releaseKey", defaultValue = "-1") String clientSideReleaseKey,
+                                  //客户端 IP ，用于灰度发布的功能
                                   @RequestParam(value = "ip", required = false) String clientIp,
                                   @RequestParam(value = "messages", required = false) String messagesAsString,
-                                  HttpServletRequest request, HttpServletResponse response) throws IOException {
+                                  HttpServletRequest request,
+                                  HttpServletResponse response) throws IOException {
     String originalNamespace = namespace;
-    //移除命名空间后缀:.properties
+    //过滤掉命名空间的后缀: .properties
     namespace = namespaceUtil.filterNamespaceName(namespace);
-    //根据appid、namespace 从本地缓存中获取 AppNamespace，如果本地缓存里没有的话，则从数据库中获取
+    // 获得统一规范的 Namespace 名字。因为，客户端 Namespace 会填写错大小写。
+    //fix the character case issue, such as FX.apollo <-> fx.apollo
     namespace = namespaceUtil.normalizeNamespace(appId, namespace);
     // 若 clientIp 未提交，从 Request 中获取。ip是用来查灰度发布情况
     if (Strings.isNullOrEmpty(clientIp)) {
@@ -103,7 +108,7 @@ public class ConfigController {
      * 明细 Map
      *
      * KEY ：{appId} "+" {clusterName} "+" {namespace} ，例如：100004458+default+application
-     * VALUE ：通知编号
+     * VALUE ：通知编号，也就是client端当前的发布版本id：releaseMessage.id
      */
     // 解析 messagesAsString 参数，创建 ApolloNotificationMessages 对象。
     ApolloNotificationMessages clientMessages = transformMessages(messagesAsString);
@@ -113,7 +118,7 @@ public class ConfigController {
     String appClusterNameLoaded = clusterName;
     //如果appId不是ApolloNoAppIdPlaceHolder
     if (!ConfigConsts.NO_APPID_PLACEHOLDER.equalsIgnoreCase(appId)) {
-      //根据clientMessages查询对应的最新的发布记录
+      //根据clientMessages查询对应的最新的发布记录(优先级：clusterName>dataCenter>default)
       Release currentAppRelease = configService.loadConfig(appId, clientIp, appId, clusterName, namespace,
           dataCenter, clientMessages);
       //如果存在新的发布记录
@@ -127,7 +132,7 @@ public class ConfigController {
 
     // 若namespace不属于appId下面的，那么Namespace必然为关联类型，则获取关联的 Namespace 的 Release 对象
     if (!namespaceBelongsToAppId(appId, namespace)) {
-      // 获得公共的 Release 对象
+      // 获得关联的公共的 Release 对象
       Release publicRelease = this.findPublicConfig(appId, clientIp, clusterName, namespace,
           dataCenter, clientMessages);
       if (!Objects.isNull(publicRelease)) {
@@ -146,10 +151,11 @@ public class ConfigController {
     }
     // 记录 InstanceConfig
     auditReleases(appId, clusterName, dataCenter, clientIp, releases);
-
+    //当有多个 Release 时，使用 "+" 作为字符串的分隔
     String mergedReleaseKey = releases.stream().map(Release::getReleaseKey)
             .collect(Collectors.joining(ConfigConsts.CLUSTER_NAMESPACE_SEPARATOR));
     // 对比 Client 的合并 Release Key 。若相等，说明没有改变，返回状态码为 302 的响应
+    //因为每次发布的时候都会生成唯一的releaseKey，如果equals，就表示没有发布新的版本
     if (mergedReleaseKey.equals(clientSideReleaseKey)) {
       // Client side configuration is the same with server side, return 304
       response.setStatus(HttpServletResponse.SC_NOT_MODIFIED);
@@ -160,6 +166,7 @@ public class ConfigController {
 
     ApolloConfig apolloConfig = new ApolloConfig(appId, appClusterNameLoaded, originalNamespace,
         mergedReleaseKey);
+    // 合并 Release 的配置，并将结果设置到 ApolloConfig 中
     apolloConfig.setConfigurations(mergeReleaseConfigurations(releases));
 
     Tracer.logEvent("Apollo.Config.Found", assembleKey(appId, appClusterNameLoaded,
@@ -183,24 +190,34 @@ public class ConfigController {
     return appNamespace != null;
   }
 
-  /**
-   * @param clientAppId the application which uses public config
-   * @param namespace   the namespace
-   * @param dataCenter  the datacenter
-   *  1、根据namespace查询公共的 namespace
-   *  2、从公共的namespace中提取出publicConfigAppId，然后查询对应的Release
+  /***
+   *
+   * @param clientAppId 客户端的appId
+   * @param clientIp 客户端ip
+   * @param clusterName 集群名称
+   * @param namespace 命名空间
+   * @param dataCenter 数据中心
+   * @param clientMessages 客户端的namespace当前对应的版本
+   * @return
+   * 1、根据namespace查询公共的 namespace
+   * 2、检查namespace所属的clientAppId跟当前请求的ClientAppId一致，则表示非public，直接返回
+   * 3、根据AppNamespace的关联的appId查找相应的最新发布版本
    */
-  private Release findPublicConfig(String clientAppId, String clientIp, String clusterName,
-                                   String namespace, String dataCenter, ApolloNotificationMessages clientMessages) {
+  private Release findPublicConfig(String clientAppId,
+                                   String clientIp,
+                                   String clusterName,
+                                   String namespace,
+                                   String dataCenter,
+                                   ApolloNotificationMessages clientMessages) {
     AppNamespace appNamespace = appNamespaceService.findPublicNamespaceByName(namespace);
 
     //check whether the namespace's appId equals to current one
     if (Objects.isNull(appNamespace) || Objects.equals(clientAppId, appNamespace.getAppId())) {
       return null;
     }
-
+    //获得公共的AppId
     String publicConfigAppId = appNamespace.getAppId();
-
+    //根据公共的appId查找最新的发布版本
     return configService.loadConfig(clientAppId, clientIp, publicConfigAppId, clusterName, namespace, dataCenter,
         clientMessages);
   }

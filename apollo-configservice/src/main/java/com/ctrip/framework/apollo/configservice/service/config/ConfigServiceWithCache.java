@@ -73,7 +73,7 @@ public class ConfigServiceWithCache extends AbstractConfigService {
         .build(new CacheLoader<String, ConfigCacheEntry>() {
           @Override
           public ConfigCacheEntry load(String key) throws Exception {
-            List<String> namespaceInfo = STRING_SPLITTER.splitToList(key);
+            List<String> namespaceInfo = STRING_SPLITTER.splitToList(key);//用'+'号分离
             if (namespaceInfo.size() != 3) {
               Tracer.logError(
                   new IllegalArgumentException(String.format("Invalid cache load key %s", key)));
@@ -163,6 +163,13 @@ public class ConfigServiceWithCache extends AbstractConfigService {
     Tracer.logEvent(TRACER_EVENT_CACHE_INVALIDATE, key);
   }
 
+  /***
+   * 当有新的版本发布的时候，会通知这个ConfigServiceWithCache，并调用当前方法
+   * 1、清空对应key的缓存
+   * 2、预热缓存，读取 ConfigCacheEntry 对象，重新从 DB 中加载。
+   * @param message
+   * @param channel
+   */
   @Override
   public void handleMessage(ReleaseMessage message, String channel) {
     logger.info("message received - channel: {}, message: {}", channel, message);
@@ -172,7 +179,7 @@ public class ConfigServiceWithCache extends AbstractConfigService {
     }
 
     try {
-      // 清空对应的缓存
+      // 清空对应key的缓存
       invalidate(message.getMessage());
       // 预热缓存，读取 ConfigCacheEntry 对象，重新从 DB 中加载。
       //warm up the cache
