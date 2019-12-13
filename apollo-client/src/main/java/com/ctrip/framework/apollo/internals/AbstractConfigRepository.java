@@ -12,15 +12,16 @@ import com.google.common.collect.Lists;
 
 /**
  * @author Jason Song(song_s@ctrip.com)
+ *  一个Namespace 对应一个 ConfigRepository
  */
 public abstract class AbstractConfigRepository implements ConfigRepository {
   private static final Logger logger = LoggerFactory.getLogger(AbstractConfigRepository.class);
-  //RepositoryChangeListener 数组
+  //RepositoryChangeListener 数组，用于监听Repository对应的namespace的配置发生变化
   private List<RepositoryChangeListener> m_listeners = Lists.newCopyOnWriteArrayList();
 
   /***
-   * 尝试同步
-   * @return
+   * 尝试同步，作为初次的配置缓存初始化。
+   * @return 是否同步成功
    */
   protected boolean trySync() {
     try {
@@ -32,6 +33,7 @@ public abstract class AbstractConfigRepository implements ConfigRepository {
           .warn("Sync config failed, will retry. Repository {}, reason: {}", this.getClass(), ExceptionUtil
               .getDetailMessage(ex));
     }
+    // 返回同步失败
     return false;
   }
 

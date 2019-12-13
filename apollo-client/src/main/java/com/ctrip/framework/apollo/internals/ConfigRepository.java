@@ -5,6 +5,9 @@ import java.util.Properties;
 
 /**
  * @author Jason Song(song_s@ctrip.com)
+ * apollo client用于从apollo 服务端读取配置
+ *
+ *  一个Namespace 对应一个 ConfigRepository
  */
 public interface ConfigRepository {
   /**

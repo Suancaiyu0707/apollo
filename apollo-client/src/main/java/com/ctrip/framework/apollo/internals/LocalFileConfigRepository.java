@@ -93,6 +93,10 @@ public class LocalFileConfigRepository extends AbstractConfigRepository
     return result;
   }
 
+  /**
+   * 从 Config Service 读取配置，缓存在本地文件。
+   * @param upstreamConfigRepository the upstream repo
+   */
   @Override
   public void setUpstreamRepository(ConfigRepository upstreamConfigRepository) {
     if (upstreamConfigRepository == null) {
@@ -103,7 +107,9 @@ public class LocalFileConfigRepository extends AbstractConfigRepository
       m_upstream.removeChangeListener(this);
     }
     m_upstream = upstreamConfigRepository;
+    //从 Config Service 读取配置，缓存在本地文件。
     trySyncFromUpstream();
+    //监听 Repository 的配置的变化
     upstreamConfigRepository.addChangeListener(this);
   }
 
@@ -155,6 +161,10 @@ public class LocalFileConfigRepository extends AbstractConfigRepository
     }
   }
 
+  /***
+   * 从 Config Service 读取配置，缓存在本地文件。
+   * @return
+   */
   private boolean trySyncFromUpstream() {
     if (m_upstream == null) {
       return false;

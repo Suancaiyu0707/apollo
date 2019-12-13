@@ -136,7 +136,10 @@ public class RemoteConfigLongPollService {
    * 把RemoteConfigRepository添加到
    */
   public boolean submit(String namespace, RemoteConfigRepository remoteConfigRepository) {
+    // 添加到 m_longPollNamespaces 中
     boolean added = m_longPollNamespaces.put(namespace, remoteConfigRepository);
+    //m_notifications维护了一个当前客户端的namespace对应的配置的版本号releaseMessage.id
+    //初识始是-1，这样就会保证启动时一定会先从apollo server拉取最新的apollo 配置
     m_notifications.putIfAbsent(namespace, INIT_NOTIFICATION_ID);
     //如果长轮询还没开始，则启动长轮询
     if (!m_longPollStarted.get()) {
@@ -161,7 +164,7 @@ public class RemoteConfigLongPollService {
       final String cluster = m_configUtil.getCluster();
       //获得数据中心
       final String dataCenter = m_configUtil.getDataCenter();
-      //获得长轮询开始时间
+      //获得长轮询开始时间,默认 2000 毫秒。
       final long longPollingInitialDelayInMills = m_configUtil.getLongPollingInitialDelayInMills();
       // 提交长轮询任务。该任务会持续且循环执行。
       m_longPollingService.submit(new Runnable() {
@@ -251,7 +254,7 @@ public class RemoteConfigLongPollService {
         if (response.getStatusCode() == 304 && random.nextBoolean()) {
           lastServiceDto = null;
         }
-
+        // 标记成功
         m_longPollFailSchedulePolicyInSecond.success();
         transaction.addData("StatusCode", response.getStatusCode());
         transaction.setStatus(Transaction.SUCCESS);
@@ -274,6 +277,11 @@ public class RemoteConfigLongPollService {
     }
   }
 
+  /***
+   * 通知对应的 RemoteConfigRepository 们，并回调RemoteConfigRepository.onLongPollNotified方法
+   * @param lastServiceDto
+   * @param notifications
+   */
   private void notify(ServiceDTO lastServiceDto, List<ApolloConfigNotification> notifications) {
     if (notifications == null || notifications.isEmpty()) {
       return;
@@ -304,6 +312,10 @@ public class RemoteConfigLongPollService {
     }
   }
 
+  /***
+   * 根据解析出来的namespace，通知对应的namespace当前最新的releaseMessage.id
+   * @param deltaNotifications
+   */
   private void updateNotifications(List<ApolloConfigNotification> deltaNotifications) {
     // 循环 ApolloConfigNotification
     for (ApolloConfigNotification notification : deltaNotifications) {
@@ -325,6 +337,11 @@ public class RemoteConfigLongPollService {
     }
   }
   // 循环 ApolloConfigNotification
+
+  /***
+   *
+   * @param deltaNotifications
+   */
   private void updateRemoteNotifications(List<ApolloConfigNotification> deltaNotifications) {
     for (ApolloConfigNotification notification : deltaNotifications) {
       if (Strings.isNullOrEmpty(notification.getNamespaceName())) {
