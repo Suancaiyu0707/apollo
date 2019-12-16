@@ -69,6 +69,15 @@ public class NamespaceBranchService {
 
   }
 
+  /***
+   *
+   * @param appId 应用id：10001
+   * @param env 环境：DEV
+   * @param clusterName 集群名称：default
+   * @param namespaceName 命名空间：seata-properties
+   * @param branchName 分支名称：20191216205727-de14b4e2b10903b9
+   * @param rules GrayReleaseRuleItemDTO{clientAppId=10001, clientIpList=[127.0.0.1, 127.0.0.11]}
+   */
   public void updateBranchGrayRules(String appId, Env env, String clusterName, String namespaceName,
                                     String branchName, GrayReleaseRuleDTO rules) {
 
@@ -76,11 +85,21 @@ public class NamespaceBranchService {
     updateBranchGrayRules(appId, env, clusterName, namespaceName, branchName, rules, operator);
   }
 
+  /**
+   *
+   * @param appId 应用id：10001
+   * @param env 环境：DEV
+   * @param clusterName 集群名称：default
+   * @param namespaceName 命名空间：seata-properties
+   * @param branchName 分支名称：20191216205727-de14b4e2b10903b9
+   * @param rules GrayReleaseRuleItemDTO{clientAppId=10001, clientIpList=[127.0.0.1, 127.0.0.11]}
+   * @param operator
+   */
   public void updateBranchGrayRules(String appId, Env env, String clusterName, String namespaceName,
                                     String branchName, GrayReleaseRuleDTO rules, String operator) {
     rules.setDataChangeCreatedBy(operator);
     rules.setDataChangeLastModifiedBy(operator);
-
+    //更新 Namespace 分支的灰度规则
     namespaceBranchAPI.updateBranchGrayRules(appId, env, clusterName, namespaceName, branchName, rules);
 
     Tracer.logEvent(TracerEventType.UPDATE_GRAY_RELEASE_RULE,

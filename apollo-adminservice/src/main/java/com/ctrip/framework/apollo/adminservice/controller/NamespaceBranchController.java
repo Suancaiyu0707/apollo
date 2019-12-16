@@ -89,18 +89,21 @@ public class NamespaceBranchController {
 
   /***
    *
-   * @param appId
-   * @param clusterName
-   * @param namespaceName
-   * @param branchName
-   * @param newRuleDto
+   * @param appId 应用id 10001
+   * @param clusterName 集群名称 default
+   * @param namespaceName namespace名称 seata-properties
+   * @param branchName 分支名称 20191216205727-de14b4e2b10903b9
+   * @param newRuleDto GrayReleaseRuleItemDTO{clientAppId=10001, clientIpList=[127.0.0.1, 127.0.0.11]}
+   * 1、校验父cluster和子 cluster是否存在
+   * 2、更新子 Namespace 的灰度发布规则，会新增一条新的GrayReleaseRule，删除旧的GrayReleaseRule
+   * 3、向队列apollo-release发送一条消息， GrayReleaseRulesHolder会处理
    */
   @Transactional
   @PutMapping("/apps/{appId}/clusters/{clusterName}/namespaces/{namespaceName}/branches/{branchName}/rules")
   public void updateBranchGrayRules(@PathVariable String appId, @PathVariable String clusterName,
                                     @PathVariable String namespaceName, @PathVariable String branchName,
                                     @RequestBody GrayReleaseRuleDTO newRuleDto) {
-    // 校验子 Namespace
+    // 校验父cluster和子 cluster是否存在
     checkBranch(appId, clusterName, namespaceName, branchName);
     // 将 GrayReleaseRuleDTO 转成 GrayReleaseRule 对象
     GrayReleaseRule newRules = BeanUtils.transform(GrayReleaseRule.class, newRuleDto);
@@ -110,7 +113,7 @@ public class NamespaceBranchController {
     newRules.setBranchStatus(NamespaceBranchStatus.ACTIVE);
     // 更新子 Namespace 的灰度发布规则
     namespaceBranchService.updateBranchGrayRules(appId, clusterName, namespaceName, branchName, newRules);
-    // 发送 Release 消息
+    // 发送 Release 消息，交给GrayReleaseRulesHolder处理
     messageSender.sendMessage(ReleaseMessageKeyGenerator.generate(appId, clusterName, namespaceName),
                               Topics.APOLLO_RELEASE_TOPIC);
   }
@@ -146,12 +149,12 @@ public class NamespaceBranchController {
   }
 
   /***
-   * 检查namespace存在
-   * 检查子namespace存在
-   * @param appId
-   * @param clusterName
-   * @param namespaceName
-   * @param branchName
+   * 检查clusterName、namespace存在
+   * 检查灰度分支branchName、namespaceName是否存在存在
+   * @param appId 应用id10001
+   * @param clusterName 父cluster名称default
+   * @param namespaceName  namespace名称 seata-properties
+   * @param branchName 子cluster名称 20191216205727-de14b4e2b10903b9
    */
   private void checkBranch(String appId, String clusterName, String namespaceName, String branchName) {
     //1. check parent namespace
@@ -168,7 +171,7 @@ public class NamespaceBranchController {
   }
 
   /***
-   * 检查namespace是否已存在
+   * 检查clusterName、namespace是否已存在
    * @param appId 应用id
    * @param clusterName 集群名称
    * @param namespaceName namespace

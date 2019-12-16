@@ -18,6 +18,9 @@ import javax.persistence.Table;
 @Entity
 @Table(name = "Instance")
 public class Instance {
+  /***
+   * 编号
+   */
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
   @Column(name = "Id")

@@ -33,16 +33,46 @@ import java.util.concurrent.atomic.AtomicBoolean;
  */
 @Service
 public class InstanceConfigAuditUtil implements InitializingBean {
+  /**
+   * {@link #audits} 大小
+   */
   private static final int INSTANCE_CONFIG_AUDIT_MAX_SIZE = 10000;
+  /**
+   * {@link #instanceCache} 大小
+   */
   private static final int INSTANCE_CACHE_MAX_SIZE = 50000;
+  /**
+   * {@link #instanceConfigReleaseKeyCache} 大小
+   */
   private static final int INSTANCE_CONFIG_CACHE_MAX_SIZE = 50000;
   private static final long OFFER_TIME_LAST_MODIFIED_TIME_THRESHOLD_IN_MILLI = TimeUnit.MINUTES.toMillis(10);//10 minutes
   private static final Joiner STRING_JOINER = Joiner.on(ConfigConsts.CLUSTER_NAMESPACE_SEPARATOR);
+  /**
+   * ExecutorService 对象。队列大小为 1 。
+   */
   private final ExecutorService auditExecutorService;
+  /**
+   * 是否停止
+   */
   private final AtomicBoolean auditStopped;
+  /**
+   * 队列
+   */
   private BlockingQueue<InstanceConfigAuditModel> audits = Queues.newLinkedBlockingQueue
       (INSTANCE_CONFIG_AUDIT_MAX_SIZE);
+  /**
+   * Instance 的编号的缓存
+   *
+   *    KEY ，使用 appId + clusterName + dataCenter + ip ，恰好是 Instance 的唯一索引的字段。
+   *    VALUE ，使用 id
+   */
   private Cache<String, Long> instanceCache;
+  /**
+   * InstanceConfig 的 ReleaseKey 的缓存
+   *
+   * KEY ，使用 instanceId + configAppId + ConfigNamespaceName ，恰好是 InstanceConfig 的唯一索引的字段
+   * VALUE ，使用 releaseKey
+   */
   private Cache<String, String> instanceConfigReleaseKeyCache;
 
   private final InstanceService instanceService;

@@ -258,6 +258,7 @@ public class ConfigController {
       return;
     }
     for (Release release : releases) {
+      // 记录 InstanceConfig
       instanceConfigAuditUtil.audit(appId, cluster, dataCenter, clientIp, release.getAppId(),
           release.getClusterName(),
           release.getNamespaceName(), release.getReleaseKey());

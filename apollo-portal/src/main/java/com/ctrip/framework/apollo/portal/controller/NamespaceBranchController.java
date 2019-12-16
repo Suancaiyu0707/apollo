@@ -60,6 +60,14 @@ public class NamespaceBranchController {
     return namespaceBO;
   }
 
+  /****
+   * 创建灰度分支
+   * @param appId
+   * @param env
+   * @param clusterName
+   * @param namespaceName
+   * @return
+   */
   @PreAuthorize(value = "@permissionValidator.hasModifyNamespacePermission(#appId, #namespaceName, #env)")
   @PostMapping(value = "/apps/{appId}/envs/{env}/clusters/{clusterName}/namespaces/{namespaceName}/branches")
   public NamespaceDTO createBranch(@PathVariable String appId,
@@ -133,7 +141,15 @@ public class NamespaceBranchController {
     return namespaceBranchService.findBranchGrayRules(appId, Env.valueOf(env), clusterName, namespaceName, branchName);
   }
 
-
+  /***
+   * 更新灰度分支的规则
+   * @param appId  appId
+   * @param env 环境
+   * @param clusterName 集群名称
+   * @param namespaceName namespace
+   * @param branchName 灰度集群(子集群)
+   * @param rules
+   */
   @PreAuthorize(value = "@permissionValidator.hasOperateNamespacePermission(#appId, #namespaceName, #env)")
   @PutMapping(value = "/apps/{appId}/envs/{env}/clusters/{clusterName}/namespaces/{namespaceName}/branches/{branchName}/rules")
   public void updateBranchRules(@PathVariable String appId, @PathVariable String env,

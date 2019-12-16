@@ -231,7 +231,8 @@ public class ReleaseService {
   }
 
   /***
-   * 进行灰度(分支)发布
+   *  进行灰度(分支)发布
+   *  子 Namespace 会自动继承 父 Namespace 已经发布的配置。若有相同的配置项，使用 子 Namespace 的。配置处理的逻辑上，和关联 Namespace 是一致的
    * @param parentNamespace 父namespace
    * @param childNamespace 灰度的 namespace
    * @param childNamespaceItems 当前灰度的namespace中的配置，不包含主干的item
@@ -253,9 +254,9 @@ public class ReleaseService {
                                          Map<String, String> childNamespaceItems,
                                          String releaseName, String releaseComment,
                                          String operator, boolean isEmergencyPublish, Set<String> grayDelKeys) {
-    //获得最后有效的 Release 对象
+    //获得父 namespace 最后有效的 Release 对象
     Release parentLatestRelease = findLatestActiveRelease(parentNamespace);
-    //将最后有效的 专程map
+    //获得父 namespace最后有效的 专程map
     Map<String, String> parentConfigurations = parentLatestRelease != null ?
             gson.fromJson(parentLatestRelease.getConfigurations(),
                     GsonType.CONFIG) : new HashMap<>();
@@ -271,7 +272,7 @@ public class ReleaseService {
         configsToPublish.remove(key);
       }
     }
-    //灰度发布
+    //灰度发布 新增一条新的GrayReleaseRule，删除一条旧的 GrayReleaseRule
     return branchRelease(parentNamespace, childNamespace, releaseName, releaseComment,
         configsToPublish, baseReleaseId, operator, ReleaseOperation.GRAY_RELEASE, isEmergencyPublish,
         childNamespaceItems.keySet());
@@ -455,31 +456,34 @@ public class ReleaseService {
                                 String releaseName, String releaseComment,
                                 Map<String, String> configurations, long baseReleaseId,
                                 String operator, int releaseOperation, boolean isEmergencyPublish, Collection<String> branchReleaseKeys) {
+    // 获得父 Namespace 最后有效的 Release 对象
     Release previousRelease = findLatestActiveRelease(childNamespace.getAppId(),
                                                       childNamespace.getClusterName(),
                                                       childNamespace.getNamespaceName());
+    // 获得父 Namespace 最后有效的 Release 对象的编号
     long previousReleaseId = previousRelease == null ? 0 : previousRelease.getId();
-
+    // 创建 Map ，用于 ReleaseHistory 对象的 `operationContext` 属性。
     Map<String, Object> releaseOperationContext = Maps.newHashMap();
     releaseOperationContext.put(ReleaseOperationContext.BASE_RELEASE_ID, baseReleaseId);
     releaseOperationContext.put(ReleaseOperationContext.IS_EMERGENCY_PUBLISH, isEmergencyPublish);
     releaseOperationContext.put(ReleaseOperationContext.BRANCH_RELEASE_KEYS, branchReleaseKeys);
-
+    // 创建子 Namespace 的 Release 对象，并保存
     Release release =
         createRelease(childNamespace, releaseName, releaseComment, configurations, operator);
 
-
+    // 更新 GrayReleaseRule 的 releaseId 属性（删除旧的，新增新的，并返回新的 GrayReleaseRule）
+    // update gray release rules
     GrayReleaseRule grayReleaseRule = namespaceBranchService.updateRulesReleaseId(childNamespace.getAppId(),
                                                                                   parentNamespace.getClusterName(),
                                                                                   childNamespace.getNamespaceName(),
                                                                                   childNamespace.getClusterName(),
                                                                                   release.getId(), operator);
-
+    // 创建 ReleaseHistory 对象，并保存
     if (grayReleaseRule != null) {
       releaseOperationContext.put(ReleaseOperationContext.RULES, GrayReleaseRuleItemTransformer
           .batchTransformFromJSON(grayReleaseRule.getRules()));
     }
-
+    //创建一条历史记录 ReleaseHistory
     releaseHistoryService.createReleaseHistory(parentNamespace.getAppId(), parentNamespace.getClusterName(),
                                                parentNamespace.getNamespaceName(), childNamespace.getClusterName(),
                                                release.getId(),

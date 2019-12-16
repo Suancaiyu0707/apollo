@@ -15,6 +15,8 @@ import javax.persistence.Table;
 
 /**
  * @author Jason Song(song_s@ctrip.com)
+ * 记录 Instance 对 Namespace 的配置的获取情况
+ * instanceId + configAppId + ConfigNamespaceName 组成唯一索引，因为一个 Instance 可以使用多个 Namespace 。
  */
 @Entity
 @Table(name = "InstanceConfig")
@@ -23,7 +25,9 @@ public class InstanceConfig {
   @GeneratedValue(strategy = GenerationType.IDENTITY)
   @Column(name = "Id")
   private long id;
-
+  /**
+   * Instance 编号，指向 {@link Instance#id}
+   */
   @Column(name = "InstanceId")
   private long instanceId;
 
@@ -32,10 +36,14 @@ public class InstanceConfig {
 
   @Column(name = "ConfigClusterName", nullable = false)
   private String configClusterName;
-
+  /**
+   * Namespace 名字
+   */
   @Column(name = "ConfigNamespaceName", nullable = false)
   private String configNamespaceName;
-
+  /**
+   * Release Key ，对应 Release.releaseKey 字段。
+   */
   @Column(name = "ReleaseKey", nullable = false)
   private String releaseKey;
 
