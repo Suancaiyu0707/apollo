@@ -134,12 +134,14 @@ public class RemoteConfigLongPollService {
    * @param remoteConfigRepository
    * @return
    * 把RemoteConfigRepository添加到
+   * 1、根据namespace->remoteConfigRepository 把remoteConfigRepository注册到一个本地缓存 m_longPollNamespaces
+   * 2、启动定时从apollo server长连接拉取apollo配置的任务
    */
   public boolean submit(String namespace, RemoteConfigRepository remoteConfigRepository) {
     // 添加到 m_longPollNamespaces 中
     boolean added = m_longPollNamespaces.put(namespace, remoteConfigRepository);
     //m_notifications维护了一个当前客户端的namespace对应的配置的版本号releaseMessage.id
-    //初识始是-1，这样就会保证启动时一定会先从apollo server拉取最新的apollo 配置
+    //初始值是-1，这样就会保证启动时一定会先从apollo server拉取最新的apollo 配置
     m_notifications.putIfAbsent(namespace, INIT_NOTIFICATION_ID);
     //如果长轮询还没开始，则启动长轮询
     if (!m_longPollStarted.get()) {
@@ -150,6 +152,9 @@ public class RemoteConfigLongPollService {
 
   /***
    * 开始启动长轮询
+   * 1、将启动长轮询拉取apollo server服务端配置的开关设置为打开。避免重复开启
+   * 2、获取当前引应用的 appId、cluster、dataCenter
+   * 3、开启一个定时任务，执行发起长轮询
    */
   private void startLongPolling() {
     //CAS 设置长轮询任务已经启动。若已经启动，不重复启动。
@@ -200,6 +205,17 @@ public class RemoteConfigLongPollService {
    * @param appId appId
    * @param cluster 当前的集群信息
    * @param dataCenter 数据中心
+   * 1、获取apollo server的集群配置Config Service列表
+   * 2、随机选择一个Config Service
+   * 3、根据选中的Config Service组装一个http url（也就是获取配置变更通知  /notifications/v2 接口的 URL），并发起http请求
+   *    http请求超时时间是90s，这个时候大于长连接的60s
+   * 4、获得请求响应并根据状态码处理：
+   *     304：表示对应的apollo配置未有变更
+   *     200：表示有新的版本变更，则需要处理更新
+   *          a、根据解析出来的namespace，通知对应的namespace当前最新的releaseMessage.id
+   *          b、把变更的版本根据namespace合并并存放到本地内存 m_remoteNotificationMessages
+   *          c、通知对应的 RemoteConfigRepository 们，并回调RemoteConfigRepository.onLongPollNotified方法
+   *
    */
   private void doLongPollingRefresh(String appId, String cluster, String dataCenter) {
     final Random random = new Random();
@@ -262,11 +278,13 @@ public class RemoteConfigLongPollService {
         lastServiceDto = null;
         Tracer.logEvent("ApolloConfigException", ExceptionUtil.getDetailMessage(ex));
         transaction.setStatus(ex);
+        //失败的话 生成一个推迟重试的时间
         long sleepTimeInSecond = m_longPollFailSchedulePolicyInSecond.fail();
         logger.warn(
             "Long polling failed, will retry in {} seconds. appId: {}, cluster: {}, namespaces: {}, long polling url: {}, reason: {}",
             sleepTimeInSecond, appId, cluster, assembleNamespaces(), url, ExceptionUtil.getDetailMessage(ex));
         try {
+          // 等待一定时间，下次失败重试
           TimeUnit.SECONDS.sleep(sleepTimeInSecond);
         } catch (InterruptedException ie) {
           //ignore
@@ -341,6 +359,8 @@ public class RemoteConfigLongPollService {
   /***
    *
    * @param deltaNotifications
+   * 1、遍历apollo server返回的版本有变更的列表ApolloConfigNotification
+   * 2、合并通知消息到 ApolloNotificationMessages 中，并把消息放到本地内存m_remoteNotificationMessages
    */
   private void updateRemoteNotifications(List<ApolloConfigNotification> deltaNotifications) {
     for (ApolloConfigNotification notification : deltaNotifications) {
