@@ -21,7 +21,7 @@ public class DefaultServerProvider implements ServerProvider {
 
   private String m_env;
   private String m_dc;
-
+  //在启动的时候加载/opt/settings/server.properties或C:/opt/settings/server.properties下的配置
   private Properties m_serverProperties = new Properties();
 
   @Override

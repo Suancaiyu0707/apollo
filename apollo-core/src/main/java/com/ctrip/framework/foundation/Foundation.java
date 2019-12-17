@@ -57,6 +57,10 @@ public abstract class Foundation {
     }
   }
 
+  /***
+   * 返回 DefaultServerProvider
+   * @return
+   */
   public static ServerProvider server() {
     try {
       return getManager().provider(ServerProvider.class);

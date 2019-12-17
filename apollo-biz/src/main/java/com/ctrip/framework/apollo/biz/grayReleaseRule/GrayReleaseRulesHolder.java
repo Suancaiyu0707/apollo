@@ -38,6 +38,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * @author Jason Song(song_s@ctrip.com)
+ * GrayReleaseRule 缓存 Holder ，用于提高对 GrayReleaseRule 的读取速度
  */
 public class GrayReleaseRulesHolder implements ReleaseMessageListener, InitializingBean {
   private static final Logger logger = LoggerFactory.getLogger(GrayReleaseRulesHolder.class);
@@ -49,14 +50,26 @@ public class GrayReleaseRulesHolder implements ReleaseMessageListener, Initializ
   private GrayReleaseRuleRepository grayReleaseRuleRepository;
   @Autowired
   private BizConfig bizConfig;
-
+  /***
+   * 定时浏览数据库的间隔时间
+   */
   private int databaseScanInterval;
   private ScheduledExecutorService executorService;
   //store configAppId+configCluster+configNamespace -> GrayReleaseRuleCache map
+  /**
+   * GrayReleaseRuleCache 缓存
+   *
+   * KEY：configAppId+configCluster+configNamespace，KEY 中不包含 BranchName
+   * VALUE：GrayReleaseRuleCache 数组
+   */
   private Multimap<String, GrayReleaseRuleCache> grayReleaseRuleCache;
-  //store clientAppId+clientNamespace+ip -> ruleId map
+  /**
+   * GrayReleaseRuleCache 缓存
+   *
+   * KEY：clientAppId+clientNamespace+ip ，KEY 中不包含 ClusterName
+   * VALUE：GrayReleaseRule.id 数组
+   */
   private Multimap<String, Long> reversedGrayReleaseRuleCache;
-  //an auto increment version to indicate the age of rules
   private AtomicLong loadVersion;
 
   public GrayReleaseRulesHolder() {
@@ -67,6 +80,13 @@ public class GrayReleaseRulesHolder implements ReleaseMessageListener, Initializ
         .create("GrayReleaseRulesHolder", true));
   }
 
+  /***
+   * 当实例初始化完后会调用该方法
+   * @throws Exception
+   * 1、获得定时轮询数据库中的GrayReleaseRule的时间间隔
+   * 2、刚启动的时候，第一次拉取 GrayReleaseRuleCache 到缓存
+   * 3、定时任务来定时拉取拉取 GrayReleaseRuleCache 到缓存，定时时间 60S
+   */
   @Override
   public void afterPropertiesSet() throws Exception {
     populateDataBaseInterval();
@@ -100,11 +120,16 @@ public class GrayReleaseRulesHolder implements ReleaseMessageListener, Initializ
     mergeGrayReleaseRules(rules);
   }
 
+  /***
+   * 定时扫描GrayReleaseRule规则
+   *
+   */
   private void periodicScanRules() {
     Transaction transaction = Tracer.newTransaction("Apollo.GrayReleaseRulesScanner",
         "scanGrayReleaseRules");
     try {
       loadVersion.incrementAndGet();
+      // 从数据卷库中，扫描所有 GrayReleaseRules ，并合并到缓存中
       scanGrayReleaseRules();
       transaction.setStatus(Transaction.SUCCESS);
     } catch (Throwable ex) {
@@ -168,17 +193,25 @@ public class GrayReleaseRulesHolder implements ReleaseMessageListener, Initializ
             .ALL_IP));
   }
 
+  /***
+   * 扫描数据库中的grayReleaseRule
+   * 1、每次500条查询grayReleaseRule，直到查询完成
+   *
+   */
   private void scanGrayReleaseRules() {
     long maxIdScanned = 0;
     boolean hasMore = true;
-
+    // 循环顺序分批加载 GrayReleaseRule ，直到结束或者线程打断
     while (hasMore && !Thread.currentThread().isInterrupted()) {
+      // 顺序分批加载 GrayReleaseRule 500 条
       List<GrayReleaseRule> grayReleaseRules = grayReleaseRuleRepository
           .findFirst500ByIdGreaterThanOrderByIdAsc(maxIdScanned);
       if (CollectionUtils.isEmpty(grayReleaseRules)) {
         break;
       }
+      // 合并到 GrayReleaseRule 缓存
       mergeGrayReleaseRules(grayReleaseRules);
+      // 获得新的 maxIdScanned ，取最后一条记录
       int rulesScanned = grayReleaseRules.size();
       maxIdScanned = grayReleaseRules.get(rulesScanned - 1).getId();
       //batch is 500
@@ -186,20 +219,29 @@ public class GrayReleaseRulesHolder implements ReleaseMessageListener, Initializ
     }
   }
 
+  /***
+   * 根据appid+clusterName+namespaceName进行合并GrayReleaseRuleCache
+   * @param grayReleaseRules
+   */
   private void mergeGrayReleaseRules(List<GrayReleaseRule> grayReleaseRules) {
     if (CollectionUtils.isEmpty(grayReleaseRules)) {
       return;
     }
     for (GrayReleaseRule grayReleaseRule : grayReleaseRules) {
+      /***
+       * 如果灰度规则 grayReleaseRule的id是空的，表示还没发布，则忽略
+       */
       if (grayReleaseRule.getReleaseId() == null || grayReleaseRule.getReleaseId() == 0) {
         //filter rules with no release id, i.e. never released
         continue;
       }
+      //appid+clusterName+namespaceName
       String key = assembleGrayReleaseRuleKey(grayReleaseRule.getAppId(), grayReleaseRule
           .getClusterName(), grayReleaseRule.getNamespaceName());
       //create a new list to avoid ConcurrentModificationException
       List<GrayReleaseRuleCache> rules = Lists.newArrayList(grayReleaseRuleCache.get(key));
       GrayReleaseRuleCache oldRule = null;
+      // 获得子 灰度分支Namespace 对应的旧的 GrayReleaseRuleCache 对象
       for (GrayReleaseRuleCache ruleCache : rules) {
         if (ruleCache.getBranchName().equals(grayReleaseRule.getBranchName())) {
           oldRule = ruleCache;
@@ -208,12 +250,15 @@ public class GrayReleaseRulesHolder implements ReleaseMessageListener, Initializ
       }
 
       //if old rule is null and new rule's branch status is not active, ignore
+      //若不存在老的GrayReleaseRuleCache，并且当前的GrayReleaseRule 对应的分支不处于激活( 有效 )状态，则忽略
       if (oldRule == null && grayReleaseRule.getBranchStatus() != NamespaceBranchStatus.ACTIVE) {
         continue;
       }
 
       //use id comparison to avoid synchronization
+      // 若新的 GrayReleaseRule 为新增或更新，进行缓存更新
       if (oldRule == null || grayReleaseRule.getId() > oldRule.getRuleId()) {
+        // 添加新的 GrayReleaseRuleCache 到缓存中
         addCache(key, transformRuleToRuleCache(grayReleaseRule));
         if (oldRule != null) {
           removeCache(key, oldRule);

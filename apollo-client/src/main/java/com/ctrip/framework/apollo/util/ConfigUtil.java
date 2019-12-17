@@ -103,15 +103,25 @@ public class ConfigUtil {
    * Get the current environment.
    *
    * @return the env, UNKNOWN if env is not set or invalid
+   *
+   * 返回：LOCAL, DEV, FWS, FAT, UAT, LPT, PRO, TOOLS, UNKNOWN
    */
   public Env getApolloEnv() {
-    return EnvUtils.transformEnv(Foundation.server().getEnvType());
+    return EnvUtils.transformEnv(
+            Foundation.server().getEnvType()//获得当前环境类型
+    );
   }
 
   public String getLocalIp() {
     return Foundation.net().getHostAddress();
   }
 
+  /***
+   *
+   * @return
+   * 1、获得当前环境 返回：LOCAL, DEV, FWS, FAT, UAT, LPT, PRO, TOOLS, UNKNOWN
+   * 2、根据环境变量获得 meta-server地址：apollo.meta=http://localhost:8070
+   */
   public String getMetaServerDomainName() {
     return MetaDomainConsts.getDomain(getApolloEnv());
   }

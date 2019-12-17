@@ -19,6 +19,10 @@ public class DiscoveryService {
     this.eurekaClient = eurekaClient;
   }
 
+  /***
+   * 通过 eureka客户端获取 apollo-configservice 列表
+   * @return
+   */
   public List<InstanceInfo> getConfigServiceInstances() {
     Application application = eurekaClient.getApplication(ServiceNameConsts.APOLLO_CONFIGSERVICE);
     if (application == null) {
@@ -26,7 +30,10 @@ public class DiscoveryService {
     }
     return application != null ? application.getInstances() : Collections.emptyList();
   }
-
+  /***
+   * 通过 eureka客户端获取 apollo-metaservice 列表
+   * @return
+   */
   public List<InstanceInfo> getMetaServiceInstances() {
     Application application = eurekaClient.getApplication(ServiceNameConsts.APOLLO_METASERVICE);
     if (application == null) {
@@ -35,6 +42,10 @@ public class DiscoveryService {
     return application != null ? application.getInstances() : Collections.emptyList();
   }
 
+  /***
+   *通过 eureka客户端获取 apollo-adminservice 列表
+   * @return
+   */
   public List<InstanceInfo> getAdminServiceInstances() {
     Application application = eurekaClient.getApplication(ServiceNameConsts.APOLLO_ADMINSERVICE);
     if (application == null) {

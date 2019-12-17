@@ -55,6 +55,7 @@ public class MetaDomainConsts {
 
   /**
    * Return one meta server address. If multiple meta server addresses are configured, will select one.
+   * 根据环境变量 获得 meta-server 地址
    */
   public static String getDomain(Env env) {
     String metaServerAddress = getMetaServerAddress(env);

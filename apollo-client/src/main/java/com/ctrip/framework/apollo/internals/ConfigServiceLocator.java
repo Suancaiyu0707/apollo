@@ -35,8 +35,14 @@ public class ConfigServiceLocator {
   private static final Logger logger = LoggerFactory.getLogger(ConfigServiceLocator.class);
   private HttpUtil m_httpUtil;
   private ConfigUtil m_configUtil;
+  /**
+   * ServiceDTO 数组的缓存
+   */
   private AtomicReference<List<ServiceDTO>> m_configServices;
   private Type m_responseType;
+  /**
+   * 定时任务 ExecutorService
+   */
   private ScheduledExecutorService m_executorService;
   private static final Joiner.MapJoiner MAP_JOINER = Joiner.on("&").withKeyValueSeparator("=");
   private static final Escaper queryParamEscaper = UrlEscapers.urlFormParameterEscaper();
@@ -53,23 +59,38 @@ public class ConfigServiceLocator {
     m_configUtil = ApolloInjector.getInstance(ConfigUtil.class);
     this.m_executorService = Executors.newScheduledThreadPool(1,
         ApolloThreadFactory.create("ConfigServiceLocator", true));
+    // 初始拉取 Config Service 地址
     initConfigServices();
   }
 
+  /***
+   * 1、根据系统或者环境变量配置获得 config service 地址列表。如果有的话直接返回
+   * 2、如果第1步未获得config service列表，则根据meta service从注册中心上拉取更新 config service 地址列表
+   * 3、开启一个定时任务，定时调用 tryUpdateConfigServices 刷新 config service 地址列表
+   */
   private void initConfigServices() {
-    // get from run time configurations
+    // 从环境变量里获取相应的config service配置
+    //系统属性获取apollo.configService > 操作系统变量里的APOLLO_CONFIGSERVICE >从/opt/settings/server.properties配置里获取 apollo.configService
     List<ServiceDTO> customizedConfigServices = getCustomizedConfigService();
-
+    //如果配置文件里配置config service，则直接返回
     if (customizedConfigServices != null) {
       setConfigServices(customizedConfigServices);
       return;
     }
 
-    // update from meta service
+    // 从meta Service上获取config service
     this.tryUpdateConfigServices();
+    //开启定时任务，定时拉取config servcie路径，定时时间5分钟
     this.schedulePeriodicRefresh();
   }
 
+  /***
+   * 获得config service集群列表
+   * @return
+   * 1、从系统属性获取apollo.configService
+   * 2、从操作系统变量里获取 APOLLO_CONFIGSERVICE
+   * 3、从/opt/settings/server.properties配置里获取 apollo.configService
+   */
   private List<ServiceDTO> getCustomizedConfigService() {
     // 1. Get from System Property
     String configServices = System.getProperty("apollo.configService");
@@ -108,6 +129,8 @@ public class ConfigServiceLocator {
    * Get the config service info from remote meta server.
    *
    * @return the services dto
+   * 1、如果如果本地内存m_configServices为空，则根据meta service更新 config services列表(最多重试次数)，并返回最新的config service 列表
+   * 2、如果如果本地内存m_configServices不为空，直接返回
    */
   public List<ServiceDTO> getConfigServices() {
     if (m_configServices.get().isEmpty()) {
@@ -117,6 +140,10 @@ public class ConfigServiceLocator {
     return m_configServices.get();
   }
 
+  /***
+   * 尝试更新 config service 地址列表，从meta service上拉取config service 地址列表
+   * @return
+   */
   private boolean tryUpdateConfigServices() {
     try {
       updateConfigServices();
@@ -127,6 +154,9 @@ public class ConfigServiceLocator {
     return false;
   }
 
+  /***
+   * 开启定时任务，定时拉取config servcie路径，定时时间5分钟
+   */
   private void schedulePeriodicRefresh() {
     this.m_executorService.scheduleAtFixedRate(
         new Runnable() {
@@ -141,7 +171,9 @@ public class ConfigServiceLocator {
   }
 
   /***
-   * 更新 config services列表
+   * 根据meta service更新 config services列表(最多重试次数)
+   * 1、获得meta service地址url
+   * 2、从 meta service地址上获取 config service 地址列表
    */
   private synchronized void updateConfigServices() {
     String url = assembleMetaServiceUrl();
@@ -182,11 +214,24 @@ public class ConfigServiceLocator {
         String.format("Get config services failed from %s", url), exception);
   }
 
+  /***
+   * 从meat service上获得config service后，要设置到m_configServices
+   * @param services
+   */
   private void setConfigServices(List<ServiceDTO> services) {
     m_configServices.set(services);
+    //日志输出加载到 config service
     logConfigServices(services);
   }
 
+  /***
+   * 获得meta service的地址
+   *
+   * @return
+   * 1、获得meta server地址：apollo.meta=http://localhost:8070
+   * 2、获得appid ：app.id=1000001
+   * 3、获得本地ip
+   */
   private String assembleMetaServiceUrl() {
     String domainName = m_configUtil.getMetaServerDomainName();
     String appId = m_configUtil.getAppId();
