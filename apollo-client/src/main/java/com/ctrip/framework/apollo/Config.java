@@ -178,6 +178,7 @@ public interface Config {
    * @param interestedKeys the keys interested by the listener
    *
    * @since 1.0.0
+   * 添加配置变化监听器
    */
   public void addChangeListener(ConfigChangeListener listener, Set<String> interestedKeys);
 
@@ -193,6 +194,7 @@ public interface Config {
    *                              and {@link java.lang.String#startsWith(String)}
    *
    * @since 1.3.0
+   * 添加配置变化监听器
    */
   public void addChangeListener(ConfigChangeListener listener, Set<String> interestedKeys, Set<String> interestedKeyPrefixes);
 
@@ -210,6 +212,7 @@ public interface Config {
    * Return a set of the property names
    *
    * @return the property names
+   *  获得属性名集合
    */
   public Set<String> getPropertyNames();
 

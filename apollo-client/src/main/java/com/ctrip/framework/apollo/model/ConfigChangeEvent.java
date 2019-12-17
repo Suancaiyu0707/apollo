@@ -6,9 +6,19 @@ import java.util.Set;
 /**
  * A change event when a namespace's config is changed.
  * @author Jason Song(song_s@ctrip.com)
+ * Config 变化事件
  */
 public class ConfigChangeEvent {
+  /**
+   * Namespace 名字
+   */
   private final String m_namespace;
+  /**
+   * 变化属性的集合
+   *
+   * KEY：属性名
+   * VALUE：配置变化
+   */
   private final Map<String, ConfigChange> m_changes;
 
   /**

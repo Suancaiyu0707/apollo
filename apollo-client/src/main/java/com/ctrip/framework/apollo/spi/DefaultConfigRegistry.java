@@ -9,6 +9,7 @@ import com.google.common.collect.Maps;
 
 /**
  * @author Jason Song(song_s@ctrip.com)
+ * 实现 ConfigRegistry 接口，默认 ConfigFactory 管理器实现类
  */
 public class DefaultConfigRegistry implements ConfigRegistry {
   private static final Logger s_logger = LoggerFactory.getLogger(DefaultConfigRegistry.class);

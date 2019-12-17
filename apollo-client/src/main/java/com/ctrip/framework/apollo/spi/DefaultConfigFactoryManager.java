@@ -7,10 +7,13 @@ import com.google.common.collect.Maps;
 
 /**
  * @author Jason Song(song_s@ctrip.com)
+ * ConfigFactoryManager 接口实现类，默认 ConfigFactory 管理器实现类
  */
 public class DefaultConfigFactoryManager implements ConfigFactoryManager {
   private ConfigRegistry m_registry;
-
+  /**
+   * ConfigFactory 对象的缓存，key
+   */
   private Map<String, ConfigFactory> m_factories = Maps.newConcurrentMap();
 
   public DefaultConfigFactoryManager() {

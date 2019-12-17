@@ -6,12 +6,18 @@ import com.ctrip.framework.apollo.enums.PropertyChangeType;
 /**
  * Holds the information for a config change.
  * @author Jason Song(song_s@ctrip.com)
+ * 配置每个属性变化的信息
  */
 public class ConfigChange {
+  //namespace名字
   private final String namespace;
+  //属性名称
   private final String propertyName;
+  //变化前的值
   private String oldValue;
+  //变化后的值
   private String newValue;
+  //变化类型
   private PropertyChangeType changeType;
 
   /**

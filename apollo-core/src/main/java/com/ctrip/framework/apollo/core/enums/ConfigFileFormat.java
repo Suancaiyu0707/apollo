@@ -49,6 +49,11 @@ public enum ConfigFileFormat {
     }
   }
 
+  /**
+   * 判断文件格式否是YAMl或者yml
+   * @param format
+   * @return
+   */
   public static boolean isPropertiesCompatible(ConfigFileFormat format) {
     return format == YAML || format == YML;
   }

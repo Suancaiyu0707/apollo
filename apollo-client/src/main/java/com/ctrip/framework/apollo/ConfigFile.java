@@ -10,24 +10,28 @@ public interface ConfigFile {
   /**
    * Get file content of the namespace
    * @return file content, {@code null} if there is no content
+   * 获得配置文件的内容
    */
   String getContent();
 
   /**
    * Whether the config file has any content
    * @return true if it has content, false otherwise.
+   * 是否包含配置信息
    */
   boolean hasContent();
 
   /**
    * Get the namespace of this config file instance
    * @return the namespace
+   * 获得配置文件对应的 namespace
    */
   String getNamespace();
 
   /**
    * Get the file format of this config file instance
    * @return the config file format enum
+   * 配置文件的格式：Properties("properties"), XML("xml"), JSON("json"), YML("yml"), YAML("yaml"), TXT("txt");
    */
   ConfigFileFormat getConfigFileFormat();
 
@@ -35,6 +39,7 @@ public interface ConfigFile {
    * Add change listener to this config file instance.
    *
    * @param listener the config file change listener
+   * 添加配置文件变化监听器
    */
   void addChangeListener(ConfigFileChangeListener listener);
 

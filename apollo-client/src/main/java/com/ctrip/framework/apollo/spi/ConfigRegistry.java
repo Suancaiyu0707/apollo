@@ -4,6 +4,7 @@ package com.ctrip.framework.apollo.spi;
  * The manually config registry, use with caution!
  *
  * @author Jason Song(song_s@ctrip.com)
+ * Config 注册表接口。其中，KEY 为 Namespace 的名字，VALUE 为 ConfigFactory 对象
  */
 public interface ConfigRegistry {
   /**

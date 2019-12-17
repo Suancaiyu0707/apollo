@@ -4,10 +4,14 @@ import com.ctrip.framework.apollo.enums.PropertyChangeType;
 
 /**
  * @author Jason Song(song_s@ctrip.com)
+ * 配置文件改变事件
  */
 public class ConfigFileChangeEvent {
+  //Namespace 名字
   private final String namespace;
+  //变更前的内容
   private final String oldValue;
+  //变更好的内容
   private final String newValue;
   private final PropertyChangeType changeType;
 
