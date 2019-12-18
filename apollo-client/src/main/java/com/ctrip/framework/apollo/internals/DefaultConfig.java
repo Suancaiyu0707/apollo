@@ -27,22 +27,46 @@ import com.google.common.util.concurrent.RateLimiter;
 
 /**
  * @author Jason Song(song_s@ctrip.com)
+ * DefaultConfig是AbstractConfig的默认实现，同时也是一个RepositoryChangeListener
+ *
+ * 为什么 DefaultConfig 实现 RepositoryChangeListener 接口？
+ * ConfigRepository 的一个实现类 RemoteConfigRepository ，会从远程 Config Service 加载配置。但是 Config Service 的配置不是一成不变，可以在 Portal 进行修改。
+ * 所以 RemoteConfigRepository 会在配置变更时，从 Admin Service 重新加载配置。为了实现 Config 监听配置的变更，所以需要将 DefaultConfig 注册为 ConfigRepository 的监听器。
+ * 因此，DefaultConfig 需要实现 RepositoryChangeListener 接口
  */
 public class DefaultConfig extends AbstractConfig implements RepositoryChangeListener {
   private static final Logger logger = LoggerFactory.getLogger(DefaultConfig.class);
+  /**
+   * Namespace 的名字
+   */
   private final String m_namespace;
+  /**
+   * 项目下，Namespace 对应的配置文件的 Properties
+   */
   private final Properties m_resourceProperties;
+  /**
+   * 配置 Properties 的缓存引用
+   */
   private final AtomicReference<Properties> m_configProperties;
+  /**
+   * 配置 Repository
+   */
   private final ConfigRepository m_configRepository;
+  /**
+   * 答应告警限流器。当读取不到属性值，会打印告警日志。通过该限流器，避免打印过多日志。
+   */
   private final RateLimiter m_warnLogRateLimiter;
 
   private volatile ConfigSourceType m_sourceType = ConfigSourceType.NONE;
 
   /**
+   * 创建一个 DefaultConfig对象
    * Constructor.
    *
    * @param namespace        the namespace of this config instance
-   * @param configRepository the config repository for this config instance
+   * @param configRepository apollo client用于从apollo 服务端读取配置，DefaultConfig 会从 ConfigRepository 中，加载配置 Properties ，并更新到 m_configProperties 中
+   *  1、从项目的从META-INF/config/namespace.properties里加载配置
+   *  2、初始化从配置中心拉取namespace对应的配置，这里会调用ConfigRepository向apollo server发起http请求。然后更新m_configRepository
    */
   public DefaultConfig(String namespace, ConfigRepository configRepository) {
     m_namespace = namespace;
@@ -53,9 +77,16 @@ public class DefaultConfig extends AbstractConfig implements RepositoryChangeLis
     initialize();
   }
 
+  /***
+   * 1、会调用RemoteConfigRepository从apllo server拉取最新的配置，并更新m_configRepository
+   * 2、将自己注册到 ConfigRepository 中，从而实现每次配置发生变更时，更新配置缓存 `m_configProperties` 。
+   */
   private void initialize() {
     try {
-      updateConfig(m_configRepository.getConfig(), m_configRepository.getSourceType());
+      updateConfig(
+              m_configRepository.getConfig()//会调用RemoteConfigRepository从apllo server拉取最新的配置
+              , m_configRepository.getSourceType()//设置 m_configRepository来源
+      );
     } catch (Throwable ex) {
       Tracer.logError(ex);
       logger.warn("Init Apollo Local Config failed - namespace: {}, reason: {}.",
@@ -67,6 +98,17 @@ public class DefaultConfig extends AbstractConfig implements RepositoryChangeLis
     }
   }
 
+  /***
+   * 根据key获得对应的值
+   * @param key          the property name
+   * @param defaultValue the default value when key is not found or any error occurred
+   * @return
+   * 1、先从启动参数里查找，有的话，直接返回
+   * 2、如果启动参数里没有，则从本地内存m_configProperties里查找，有的话，则直接返回。注意这个m_configProperties是在启动后从apollo上拉下来的，后面会定时监听apollo server变化
+   * 3、从系统变量里查找，有的话直接返回
+   * 4、如果系统变量里没有，则从META-INF/config/namespace.properties拉取
+   * 4、如果都没有的话，则返回默认值
+   */
   @Override
   public String getProperty(String key, String defaultValue) {
     // step 1: check system properties, i.e. -Dkey=value
@@ -126,6 +168,13 @@ public class DefaultConfig extends AbstractConfig implements RepositoryChangeLis
     return h.keySet();
   }
 
+  /***
+   * 如果apollo server的配置发生了变更，则会通知
+   * @param namespace the namespace of this repository change
+   * @param newProperties the properties after change
+   * 1、更新本地缓存，并记录变更的配置
+   * 2、如果监听的配置发生变化，则会通知 ConfigChangeListener
+   */
   @Override
   public synchronized void onRepositoryChange(String namespace, Properties newProperties) {
     if (newProperties.equals(m_configProperties.get())) {
@@ -135,7 +184,7 @@ public class DefaultConfig extends AbstractConfig implements RepositoryChangeLis
     ConfigSourceType sourceType = m_configRepository.getSourceType();
     Properties newConfigProperties = new Properties();
     newConfigProperties.putAll(newProperties);
-
+    //更新本地缓存，并记录变更的配置
     Map<String, ConfigChange> actualChanges = updateAndCalcConfigChanges(newConfigProperties, sourceType);
 
     //check double checked result
@@ -153,8 +202,18 @@ public class DefaultConfig extends AbstractConfig implements RepositoryChangeLis
     m_sourceType = sourceType;
   }
 
+  /***
+   * 如果apollo server的配置发生了变化，则会把最新的配置发送偶来
+   * @param newConfigProperties
+   * @param sourceType
+   * @return
+   * 1、修改本地内存的m_configProperties里的属性列表
+   * 2、清除config里旧的缓存
+   * 3、记录变更的配置
+   */
   private Map<String, ConfigChange> updateAndCalcConfigChanges(Properties newConfigProperties,
       ConfigSourceType sourceType) {
+    //根据最新的配置，计算发生变化的配置列表
     List<ConfigChange> configChanges =
         calcPropertyChanges(m_namespace, m_configProperties.get(), newConfigProperties);
 
@@ -207,7 +266,13 @@ public class DefaultConfig extends AbstractConfig implements RepositoryChangeLis
     return actualChanges.build();
   }
 
+  /***
+   *
+   * @param namespace
+   * @return
+   */
   private Properties loadFromResource(String namespace) {
+    //从META-INF/config/namespace.properties里加载配置
     String name = String.format("META-INF/config/%s.properties", namespace);
     InputStream in = ClassLoaderUtil.getLoader().getResourceAsStream(name);
     Properties properties = null;

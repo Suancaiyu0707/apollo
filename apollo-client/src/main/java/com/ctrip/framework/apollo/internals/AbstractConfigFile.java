@@ -23,13 +23,28 @@ import com.google.common.collect.Lists;
 
 /**
  * @author Jason Song(song_s@ctrip.com)
+ * ConfigFile的一个抽象类
  */
 public abstract class AbstractConfigFile implements ConfigFile, RepositoryChangeListener {
   private static final Logger logger = LoggerFactory.getLogger(AbstractConfigFile.class);
+  /**
+   * ExecutorService 对象，用于配置变化时，异步通知 ConfigChangeListener 监听器们
+   *
+   * 静态属性，所有 Config 共享该线程池。
+   */
   private static ExecutorService m_executorService;
   protected final ConfigRepository m_configRepository;
+  /**
+   * Namespace 的名字
+   */
   protected final String m_namespace;
+  /***
+   * apollo server上配置文件里的配置的本地缓存
+   */
   protected final AtomicReference<Properties> m_configProperties;
+  /***
+   * 用于监听配置文件发生变化的监听器
+   */
   private final List<ConfigFileChangeListener> m_listeners = Lists.newCopyOnWriteArrayList();
 
   private volatile ConfigSourceType m_sourceType = ConfigSourceType.NONE;
@@ -39,6 +54,12 @@ public abstract class AbstractConfigFile implements ConfigFile, RepositoryChange
         .create("ConfigFile", true));
   }
 
+  /***
+   * 新建一个抽象的配置文件对象
+   * @param namespace 配置文件对应的namespace
+   * @param configRepository 用于长轮询拉取配置的对象
+   *
+   */
   public AbstractConfigFile(String namespace, ConfigRepository configRepository) {
     m_configRepository = configRepository;
     m_namespace = namespace;
@@ -46,8 +67,15 @@ public abstract class AbstractConfigFile implements ConfigFile, RepositoryChange
     initialize();
   }
 
+  /***
+   * 1、从远程拉取最新的配置，并更新到本地内存里
+   * 2、注册监听器，当配置发生变化会通知过来，调用onRepositoryChange方法，更新配置缓存 `m_configProperties`
+   */
   private void initialize() {
     try {
+      /***
+       * m_configRepository会从远程apollo server拉取 最新的配置，并更新到Config对象里，这里会把它设置到m_configProperties
+       */
       m_configProperties.set(m_configRepository.getConfig());
       m_sourceType = m_configRepository.getSourceType();
     } catch (Throwable ex) {
@@ -57,10 +85,15 @@ public abstract class AbstractConfigFile implements ConfigFile, RepositoryChange
     } finally {
       //register the change listener no matter config repository is working or not
       //so that whenever config repository is recovered, config could get changed
+      //把当前config注册到m_configRepository，如果配置发生变化，就会通知当前对象调用onRepositoryChange方法
       m_configRepository.addChangeListener(this);
     }
   }
 
+  /**
+   * 获得 m_namespace
+   * @return
+   */
   @Override
   public String getNamespace() {
     return m_namespace;
@@ -70,19 +103,21 @@ public abstract class AbstractConfigFile implements ConfigFile, RepositoryChange
 
   @Override
   public synchronized void onRepositoryChange(String namespace, Properties newProperties) {
+    // 忽略，若未变更
     if (newProperties.equals(m_configProperties.get())) {
       return;
     }
+    // 读取新的 Properties 对象
     Properties newConfigProperties = new Properties();
     newConfigProperties.putAll(newProperties);
-
+    // 获得【旧】值
     String oldValue = getContent();
-
+    // 更新为【新】值
     update(newProperties);
     m_sourceType = m_configRepository.getSourceType();
 
     String newValue = getContent();
-
+    // 计算变化类型
     PropertyChangeType changeType = PropertyChangeType.MODIFIED;
 
     if (oldValue == null) {
@@ -90,7 +125,7 @@ public abstract class AbstractConfigFile implements ConfigFile, RepositoryChange
     } else if (newValue == null) {
       changeType = PropertyChangeType.DELETED;
     }
-
+    // 通知监听器们
     this.fireConfigChange(new ConfigFileChangeEvent(m_namespace, oldValue, newValue, changeType));
 
     Tracer.logEvent("Apollo.Client.ConfigChanges", m_namespace);

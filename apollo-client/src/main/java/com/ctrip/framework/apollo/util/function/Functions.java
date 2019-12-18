@@ -9,6 +9,7 @@ import com.google.common.base.Function;
 
 /**
  * @author Jason Song(song_s@ctrip.com)
+ * 包含了所有解析各种基本数据类型的Function对象
  */
 public interface Functions {
   Function<String, Integer> TO_INT_FUNCTION = new Function<String, Integer>() {
