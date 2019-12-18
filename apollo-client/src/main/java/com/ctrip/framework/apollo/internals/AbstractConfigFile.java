@@ -101,6 +101,11 @@ public abstract class AbstractConfigFile implements ConfigFile, RepositoryChange
 
   protected abstract void update(Properties newProperties);
 
+  /***
+   * 当 ConfigRepository 读取到配置发生变更时，计算配置变更集合，并通知监听器们。
+   * @param namespace the namespace of this repository change
+   * @param newProperties the properties after change
+   */
   @Override
   public synchronized void onRepositoryChange(String namespace, Properties newProperties) {
     // 忽略，若未变更
@@ -148,7 +153,12 @@ public abstract class AbstractConfigFile implements ConfigFile, RepositoryChange
     return m_sourceType;
   }
 
+  /***
+   * 触发配置变更监听器们
+   * @param changeEvent
+   */
   private void fireConfigChange(final ConfigFileChangeEvent changeEvent) {
+    // 缓存 ConfigChangeListener 数组
     for (final ConfigFileChangeListener listener : m_listeners) {
       m_executorService.submit(new Runnable() {
         @Override
@@ -156,6 +166,7 @@ public abstract class AbstractConfigFile implements ConfigFile, RepositoryChange
           String listenerName = listener.getClass().getName();
           Transaction transaction = Tracer.newTransaction("Apollo.ConfigFileChangeListener", listenerName);
           try {
+            // 通知监听器
             listener.onChange(changeEvent);
             transaction.setStatus(Transaction.SUCCESS);
           } catch (Throwable ex) {

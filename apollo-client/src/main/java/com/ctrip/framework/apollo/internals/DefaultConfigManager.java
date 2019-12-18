@@ -40,7 +40,7 @@ public class DefaultConfigManager implements ConfigManager {
   public Config getConfig(String namespace) {
     // 获得 Config 对象
     Config config = m_configs.get(namespace);
-    // 若不存在，进行创建，保证单例
+    // 若不存在，进行创建，保证单例fireConfigChange
     if (config == null) {
       synchronized (this) {
         // 获得 Config 对象
