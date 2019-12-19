@@ -28,15 +28,28 @@ import com.google.common.base.Preconditions;
 
 /**
  * @author Jason Song(song_s@ctrip.com)
+ * 本地配置文件
  */
 public class LocalFileConfigRepository extends AbstractConfigRepository
     implements RepositoryChangeListener {
   private static final Logger logger = LoggerFactory.getLogger(LocalFileConfigRepository.class);
+  /**
+   * 配置文件目录
+   */
   private static final String CONFIG_DIR = "/config-cache";
+  /**
+   * namespace
+   */
   private final String m_namespace;
+  /***
+   *
+   */
   private File m_baseDir;
   private final ConfigUtil m_configUtil;
   private volatile Properties m_fileProperties;
+  /**
+   * 上游的 ConfigRepository 对象。一般情况下，使用 RemoteConfigRepository 对象，读取远程 Config Service 的配置
+   */
   private volatile ConfigRepository m_upstream;
 
   private volatile ConfigSourceType m_sourceType = ConfigSourceType.LOCAL;
@@ -53,7 +66,9 @@ public class LocalFileConfigRepository extends AbstractConfigRepository
   public LocalFileConfigRepository(String namespace, ConfigRepository upstream) {
     m_namespace = namespace;
     m_configUtil = ApolloInjector.getInstance(ConfigUtil.class);
+    // 获得本地缓存配置文件的目录
     this.setLocalCacheDir(findLocalCacheDir(), false);
+    // 设置 `m_upstream` 属性
     this.setUpstreamRepository(upstream);
     this.trySync();
   }
